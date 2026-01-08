@@ -11,7 +11,17 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       eventsPerSecond: 10,
     },
   },
+  auth: {
+    persistSession: false, // Não precisamos de autenticação persistente
+  },
 });
+
+// Teste de conectividade ao inicializar
+console.log('🔌 Supabase configurado:', SUPABASE_URL);
+console.log('🔑 Realtime habilitado');
+
+// Testar conexão
+supabase.realtime.connect();
 
 export interface Room {
   id: string;

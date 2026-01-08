@@ -39,11 +39,12 @@ export function useMultiplayer() {
       setIsHost(true);
 
       console.log('✅ Criando sala:', roomId);
+      console.log('🔑 Player ID:', playerId);
 
       // Criar canal do Supabase Realtime
       const channel = supabase.channel(roomId, {
         config: {
-          broadcast: { self: true },
+          broadcast: { self: true, ack: false },
           presence: { key: playerId },
         },
       });
@@ -77,6 +78,8 @@ export function useMultiplayer() {
 
       // Subscrever ao canal
       await channel.subscribe(async (status) => {
+        console.log('📡 Status de subscrição (criar):', status);
+        
         if (status === 'SUBSCRIBED') {
           console.log('✅ Conectado ao canal:', roomId);
           
@@ -90,15 +93,17 @@ export function useMultiplayer() {
           });
           
           setConnected(true);
-        } else if (status === 'CHANNEL_ERROR') {
-          throw new Error('Erro ao conectar ao canal');
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          console.error('❌ Erro ao conectar:', status);
+          throw new Error(`Erro ao conectar ao canal: ${status}`);
         }
       });
 
       channelRef.current = channel;
     } catch (error) {
       console.error('❌ Erro ao criar sala:', error);
-      alert('Erro ao criar sala. Tente novamente.');
+      const errorMsg = error instanceof Error ? error.message : 'Erro desconhecido';
+      alert(`Erro ao criar sala: ${errorMsg}\n\nVerifique:\n- Conexão com internet\n- Configuração do Supabase\n- Console do navegador (F12) para detalhes`);
       setConnected(false);
     }
   }, [generatePlayerId, setMyPlayerId, setRoomId, setIsHost, setPlayers, setConnected]);
@@ -114,11 +119,12 @@ export function useMultiplayer() {
       setIsHost(false);
 
       console.log('🔗 Entrando na sala:', roomIdToJoin);
+      console.log('🔑 Player ID:', playerId);
 
       // Conectar ao canal existente
       const channel = supabase.channel(roomIdToJoin, {
         config: {
-          broadcast: { self: true },
+          broadcast: { self: true, ack: false },
           presence: { key: playerId },
         },
       });
@@ -152,6 +158,8 @@ export function useMultiplayer() {
 
       // Subscrever ao canal
       await channel.subscribe(async (status) => {
+        console.log('📡 Status de subscrição:', status);
+        
         if (status === 'SUBSCRIBED') {
           console.log('✅ Conectado à sala:', roomIdToJoin);
           
@@ -189,15 +197,17 @@ export function useMultiplayer() {
             event: 'game-action',
             payload: joinMessage,
           });
-        } else if (status === 'CHANNEL_ERROR') {
-          throw new Error('Sala não encontrada ou erro de conexão');
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          console.error('❌ Erro de conexão ao canal:', status);
+          throw new Error(`Erro ao conectar: ${status}`);
         }
       });
 
       channelRef.current = channel;
     } catch (error) {
       console.error('❌ Erro ao entrar na sala:', error);
-      alert('Erro ao entrar na sala. Verifique o código e tente novamente.');
+      const errorMsg = error instanceof Error ? error.message : 'Erro desconhecido';
+      alert(`Erro ao entrar na sala: ${errorMsg}\n\nDicas:\n- Verifique se o código está correto\n- O host precisa criar a sala primeiro\n- Tente criar uma nova sala`);
       setConnected(false);
     }
   }, [generatePlayerId, setMyPlayerId, setRoomId, setIsHost, setPlayers, setConnected, players]);
