@@ -4,6 +4,7 @@ import type { OnlinePlayer } from '../types/online';
 
 interface OnlineState {
   isOnline: boolean;
+  isGameStarted: boolean;
   roomId: string | null;
   myPlayerId: string | null;
   isHost: boolean;
@@ -11,6 +12,7 @@ interface OnlineState {
   connected: boolean;
   
   setOnline: (online: boolean) => void;
+  setGameStarted: (started: boolean) => void;
   setRoomId: (roomId: string | null) => void;
   setMyPlayerId: (id: string | null) => void;
   setIsHost: (isHost: boolean) => void;
@@ -25,6 +27,7 @@ export const useOnlineStore = create<OnlineState>()(
   devtools(
     (set) => ({
       isOnline: false,
+      isGameStarted: false,
       roomId: null,
       myPlayerId: null,
       isHost: false,
@@ -32,6 +35,8 @@ export const useOnlineStore = create<OnlineState>()(
       connected: false,
       
       setOnline: (online) => set({ isOnline: online }, false, 'setOnline'),
+      
+      setGameStarted: (started) => set({ isGameStarted: started }, false, 'setGameStarted'),
       
       setRoomId: (roomId) => set({ roomId }, false, 'setRoomId'),
       
@@ -56,6 +61,7 @@ export const useOnlineStore = create<OnlineState>()(
       reset: () =>
         set({
           isOnline: false,
+          isGameStarted: false,
           roomId: null,
           myPlayerId: null,
           isHost: false,

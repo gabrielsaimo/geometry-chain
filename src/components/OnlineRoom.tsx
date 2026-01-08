@@ -5,10 +5,9 @@ import styles from './OnlineRoom.module.css';
 
 interface OnlineRoomProps {
   onClose: () => void;
-  onStartGame: () => void;
 }
 
-const OnlineRoom = memo(({ onClose, onStartGame }: OnlineRoomProps) => {
+const OnlineRoom = memo(({ onClose }: OnlineRoomProps) => {
   const [tab, setTab] = useState<'create' | 'join'>('create');
   const [playerName, setPlayerName] = useState('');
   const [roomIdInput, setRoomIdInput] = useState('');
@@ -16,6 +15,9 @@ const OnlineRoom = memo(({ onClose, onStartGame }: OnlineRoomProps) => {
   
   const { createRoom, joinRoom, leaveRoom, startGame, roomId, isHost, players } = useMultiplayer();
   const { connected } = useOnlineStore();
+
+  // Não precisamos mais do callback onGameStart aqui,
+  // o App.tsx monitora o estado e muda a tela automaticamente
 
   const handleCreateRoom = useCallback(async () => {
     if (!playerName.trim()) return;
@@ -42,10 +44,11 @@ const OnlineRoom = memo(({ onClose, onStartGame }: OnlineRoomProps) => {
 
   const handleStart = useCallback(async () => {
     if (players.length >= 2) {
+      console.log('🎮 Iniciando jogo...');
       await startGame();
-      onStartGame();
+      // O App.tsx mudará a tela automaticamente quando isGameStarted=true
     }
-  }, [players, startGame, onStartGame]);
+  }, [players, startGame]);
 
   return (
     <div className={styles['online-modal']}>

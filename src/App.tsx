@@ -1,13 +1,23 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import SetupScreen from './components/SetupScreen';
 import GameBoard from './components/GameBoard';
 import WinnerModal from './components/WinnerModal';
 import OnlineRoom from './components/OnlineRoom';
 import { useGameStore } from './store/gameStore';
+import { useOnlineStore } from './store/onlineStore';
 
 function App() {
   const [screen, setScreen] = useState<'setup' | 'game' | 'online'>('setup');
   const { resetGame } = useGameStore();
+  const { connected, isGameStarted } = useOnlineStore();
+
+  // Se estiver conectado e o jogo iniciar, mudar para tela de jogo
+  useEffect(() => {
+    if (connected && isGameStarted && screen === 'online') {
+      console.log('🎮 Mudando para tela de jogo...');
+      setScreen('game');
+    }
+  }, [connected, isGameStarted, screen]);
 
   const handleStart = () => {
     setScreen('game');
@@ -21,11 +31,9 @@ function App() {
     setScreen('setup');
   };
 
-  const handleOnlineStart = () => {
-    setScreen('game');
-  };
-
   const handleBack = () => {
+    // Resetar estado online ao voltar
+    useOnlineStore.getState().setGameStarted(false);
     setScreen('setup');
   };
 
@@ -40,7 +48,7 @@ function App() {
       )}
       {screen === 'game' && <GameBoard onBack={handleBack} />}
       {screen === 'online' && (
-        <OnlineRoom onClose={handleOnlineClose} onStartGame={handleOnlineStart} />
+        <OnlineRoom onClose={handleOnlineClose} />
       )}
       <WinnerModal onPlayAgain={handlePlayAgain} onBackToMenu={handleBack} />
     </>

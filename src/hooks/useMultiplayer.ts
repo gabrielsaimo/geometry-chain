@@ -232,7 +232,9 @@ export function useMultiplayer() {
         break;
 
       case 'START_GAME':
-        console.log('🎮 Jogo iniciado!');
+        console.log('🎮 Jogo iniciado pelo host!');
+        // Marcar como iniciado
+        useOnlineStore.getState().setGameStarted(true);
         break;
 
       case 'RESET':
@@ -292,6 +294,8 @@ export function useMultiplayer() {
       return;
     }
 
+    console.log('🎮 Host iniciando jogo...');
+    
     const message: GameMessage = {
       type: 'START_GAME',
       payload: { players },
@@ -300,6 +304,9 @@ export function useMultiplayer() {
     };
 
     await broadcast(message);
+    
+    // Marcar como iniciado localmente também
+    useOnlineStore.getState().setGameStarted(true);
   }, [isHost, players, broadcast]);
 
   // Sair da sala

@@ -27,12 +27,31 @@ export function useCanvas(
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width;
-    canvas.height = rect.height;
+    const updateCanvasSize = () => {
+      const rect = canvas.getBoundingClientRect();
+      const newWidth = rect.width;
+      const newHeight = rect.height;
+      
+      // Só atualizar se o tamanho mudou significativamente
+      if (Math.abs(canvas.width - newWidth) > 1 || Math.abs(canvas.height - newHeight) > 1) {
+        canvas.width = newWidth;
+        canvas.height = newHeight;
 
-    const newDots = generateHexGrid(setup.gridSize, canvas.width, canvas.height);
-    setDots(newDots);
+        const newDots = generateHexGrid(setup.gridSize, canvas.width, canvas.height);
+        setDots(newDots);
+      }
+    };
+
+    // Atualizar tamanho inicial
+    updateCanvasSize();
+
+    // Observar mudanças de tamanho (incluindo fullscreen)
+    const resizeObserver = new ResizeObserver(updateCanvasSize);
+    resizeObserver.observe(canvas);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
   }, [setup.gridSize, setDots]);
 
   // Função de desenho otimizada
@@ -146,9 +165,13 @@ export function useCanvas(
       clientY = (e as MouseEvent).clientY;
     }
 
+    // Calcular coordenadas considerando o scaling do canvas
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+
     return {
-      x: clientX - rect.left,
-      y: clientY - rect.top,
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY,
     };
   }, []);
 
