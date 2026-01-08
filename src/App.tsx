@@ -9,7 +9,7 @@ import { useOnlineStore } from './store/onlineStore';
 function App() {
   const [screen, setScreen] = useState<'setup' | 'game' | 'online'>('setup');
   const { resetGame, setOnlinePlayers } = useGameStore();
-  const { connected, isGameStarted, players: onlinePlayers } = useOnlineStore();
+  const { connected, isGameStarted, players: onlinePlayers, myPlayerId, setMyPlayerIndex } = useOnlineStore();
 
   // Se estiver conectado e o jogo iniciar, mudar para tela de jogo
   useEffect(() => {
@@ -17,6 +17,7 @@ function App() {
       console.log('🎮 Mudando para tela de jogo...');
       console.log('👥 Jogadores online:', onlinePlayers);
       console.log('📊 Quantidade de jogadores:', onlinePlayers.length);
+      console.log('🔑 Meu ID:', myPlayerId);
       
       // Sincronizar jogadores da sala online com o gameStore
       if (onlinePlayers.length > 0) {
@@ -26,6 +27,18 @@ function App() {
         }));
         console.log('✅ Sincronizando jogadores:', mappedPlayers);
         setOnlinePlayers(mappedPlayers);
+        
+        // Definir o índice deste jogador baseado na ordem
+        const myIndex = onlinePlayers.findIndex(p => p.id === myPlayerId);
+        console.log('📍 Meu índice no jogo:', myIndex);
+        setMyPlayerIndex(myIndex);
+        
+        // Host sempre é o primeiro jogador (index 0)
+        if (myIndex === 0) {
+          console.log('⭐ Você é o PRIMEIRO jogador - SUA VEZ!');
+        } else {
+          console.log('⏳ Você é o jogador', myIndex + 1, '- Aguarde sua vez');
+        }
         
         // Verificar se foi setado corretamente
         setTimeout(() => {
@@ -38,7 +51,7 @@ function App() {
       
       setScreen('game');
     }
-  }, [connected, isGameStarted, screen, onlinePlayers, setOnlinePlayers]);
+  }, [connected, isGameStarted, screen, onlinePlayers, myPlayerId, setOnlinePlayers, setMyPlayerIndex]);
 
   const handleStart = () => {
     setScreen('game');

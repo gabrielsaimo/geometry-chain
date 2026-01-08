@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useGameStore } from '../store/gameStore';
+import { useOnlineStore } from '../store/onlineStore';
 import { generateHexGrid, getClosestDot } from '../utils/gameLogic';
 import type { Dot, HoverLine } from '../types/game';
 
@@ -21,6 +22,10 @@ export function useCanvas(
   });
   
   const { setup, dots, lines, triangles, players, currentPlayer, isGameOver, setDots } = useGameStore();
+  const { connected, myPlayerIndex } = useOnlineStore();
+  
+  // Verificar se é a vez deste jogador
+  const isMyTurn = !connected || myPlayerIndex === currentPlayer;
 
   // Inicializar grid quando canvas estiver pronto
   useEffect(() => {
@@ -180,6 +185,10 @@ export function useCanvas(
   const handleStart = useCallback(
     (e: MouseEvent | TouchEvent) => {
       if (isGameOver) return;
+      if (!isMyTurn) {
+        console.log('⛔ Não é sua vez! Aguarde o outro jogador.');
+        return;
+      }
       e.preventDefault();
 
       const pos = getPos(e);
@@ -191,7 +200,7 @@ export function useCanvas(
         draw();
       }
     },
-    [isGameOver, getPos, dots, setup.gridSize, draw]
+    [isGameOver, isMyTurn, getPos, dots, setup.gridSize, draw]
   );
 
   const handleMove = useCallback(

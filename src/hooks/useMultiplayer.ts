@@ -278,9 +278,14 @@ export function useMultiplayer() {
 
   // Enviar movimento
   const sendMove = useCallback(async (p1: any, p2: any) => {
+    const currentPlayer = useGameStore.getState().currentPlayer;
     const message: GameMessage = {
       type: 'MOVE',
-      payload: { p1, p2 },
+      payload: { 
+        p1, 
+        p2, 
+        currentPlayer // Sincronizar qual jogador fez o movimento
+      },
       playerId: myPlayerIdRef.current,
       timestamp: Date.now(),
     };

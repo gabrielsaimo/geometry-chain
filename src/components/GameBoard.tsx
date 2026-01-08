@@ -14,7 +14,7 @@ interface GameBoardProps {
 
 const GameBoard = memo(({ onBack }: GameBoardProps) => {
   const { setup, resetGame, dots, currentPlayer, players } = useGameStore();
-  const { connected } = useOnlineStore();
+  const { connected, myPlayerIndex } = useOnlineStore();
   const { sendMove } = useMultiplayer();
   const { makeMove, validateHoverLine, setNotificationHandler } = useGameLogic(connected ? sendMove : undefined);
   const { canvasRef } = useCanvas(makeMove, validateHoverLine);
@@ -23,6 +23,9 @@ const GameBoard = memo(({ onBack }: GameBoardProps) => {
   
   const gameAreaRef = useRef<HTMLDivElement>(null);
   const { isFullscreen, toggleFullscreen } = useFullscreen(gameAreaRef);
+  
+  // Verificar se é a vez deste jogador
+  const isMyTurn = !connected || myPlayerIndex === currentPlayer;
 
   const handleNotification = useCallback((text: string) => {
     setNotification(text);
@@ -100,14 +103,34 @@ const GameBoard = memo(({ onBack }: GameBoardProps) => {
         {connected && players[currentPlayer] && (
           <div style={{ 
             marginTop: '8px', 
-            padding: '8px 16px', 
-            backgroundColor: players[currentPlayer].color + '30',
-            border: `2px solid ${players[currentPlayer].color}`,
+            padding: '12px 20px', 
+            backgroundColor: isMyTurn 
+              ? players[currentPlayer].color + '30'
+              : '#1e293b',
+            border: `3px solid ${players[currentPlayer].color}`,
             borderRadius: '8px',
             color: '#fff',
-            fontWeight: 'bold'
+            fontWeight: 'bold',
+            fontSize: '16px',
+            textAlign: 'center'
           }}>
-            Vez de: {players[currentPlayer].name}
+            {isMyTurn ? (
+              <>
+                ⭐ SUA VEZ! ⭐
+                <br />
+                <span style={{ fontSize: '14px', opacity: 0.9 }}>
+                  Jogador: {players[currentPlayer].name}
+                </span>
+              </>
+            ) : (
+              <>
+                ⏳ Aguarde...
+                <br />
+                <span style={{ fontSize: '14px', opacity: 0.9 }}>
+                  Vez de: {players[currentPlayer].name}
+                </span>
+              </>
+            )}
           </div>
         )}
       </div>

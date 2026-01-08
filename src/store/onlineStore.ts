@@ -7,6 +7,7 @@ interface OnlineState {
   isGameStarted: boolean;
   roomId: string | null;
   myPlayerId: string | null;
+  myPlayerIndex: number; // Índice do jogador no array (0 = primeiro, 1 = segundo)
   isHost: boolean;
   players: OnlinePlayer[];
   connected: boolean;
@@ -15,6 +16,7 @@ interface OnlineState {
   setGameStarted: (started: boolean) => void;
   setRoomId: (roomId: string | null) => void;
   setMyPlayerId: (id: string | null) => void;
+  setMyPlayerIndex: (index: number) => void;
   setIsHost: (isHost: boolean) => void;
   setPlayers: (players: OnlinePlayer[]) => void;
   addPlayer: (player: OnlinePlayer) => void;
@@ -30,6 +32,7 @@ export const useOnlineStore = create<OnlineState>()(
       isGameStarted: false,
       roomId: null,
       myPlayerId: null,
+      myPlayerIndex: -1,
       isHost: false,
       players: [],
       connected: false,
@@ -41,6 +44,8 @@ export const useOnlineStore = create<OnlineState>()(
       setRoomId: (roomId) => set({ roomId }, false, 'setRoomId'),
       
       setMyPlayerId: (id) => set({ myPlayerId: id }, false, 'setMyPlayerId'),
+      
+      setMyPlayerIndex: (index) => set({ myPlayerIndex: index }, false, 'setMyPlayerIndex'),
       
       setIsHost: (isHost) => set({ isHost }, false, 'setIsHost'),
       
@@ -64,6 +69,7 @@ export const useOnlineStore = create<OnlineState>()(
           isGameStarted: false,
           roomId: null,
           myPlayerId: null,
+          myPlayerIndex: -1,
           isHost: false,
           players: [],
           connected: false,
