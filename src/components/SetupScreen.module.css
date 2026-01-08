@@ -1,0 +1,166 @@
+.setup-screen {
+  background: var(--panel-bg);
+  padding: 30px;
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  width: 100%;
+  max-width: 500px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+.title {
+  margin: 0;
+  font-size: 2rem;
+  background: linear-gradient(45deg, #ef4444, #3b82f6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 800;
+}
+
+.subtitle {
+  color: #64748b;
+  font-size: 0.9rem;
+  margin-top: 5px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.player-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.player-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.color-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.input {
+  background: var(--input-bg);
+  border: 1px solid transparent;
+  color: white;
+  padding: 10px 15px;
+  border-radius: 8px;
+  width: 100%;
+  font-size: 1rem;
+  outline: none;
+  transition: 0.2s;
+}
+
+.input:focus {
+  border-color: var(--accent);
+  background: #1e293b;
+}
+
+.segmented-control {
+  display: flex;
+  background: var(--input-bg);
+  border-radius: 10px;
+  padding: 4px;
+}
+
+.segment-btn {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  padding: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: 0.2s;
+}
+
+.segment-btn.active {
+  background: var(--accent);
+  color: white;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.start-btn {
+  background: linear-gradient(45deg, #22c55e, #16a34a);
+  color: white;
+  border: none;
+  padding: 15px;
+  border-radius: 12px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 10px;
+  transition: transform 0.1s;
+}
+
+.start-btn:active {
+  transform: scale(0.98);
+}
+
+.online-btn {
+  background: linear-gradient(45deg, #3b82f6, #2563eb);
+  color: white;
+  border: none;
+  padding: 15px;
+  border-radius: 12px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 10px;
+  transition: transform 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.online-btn:active {
+  transform: scale(0.98);
+}
+
+.buttons-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hint {
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-top: 5px;
+}
+
+@media (max-width: 500px) {
+  .setup-screen {
+    padding: 20px;
+    width: 95%;
+  }
+}

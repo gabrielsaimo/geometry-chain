@@ -1,0 +1,68 @@
+import { create } from 'zustand';
+import { devtools } from 'zustand/middleware';
+import type { OnlinePlayer } from '../types/online';
+
+interface OnlineState {
+  isOnline: boolean;
+  roomId: string | null;
+  myPlayerId: string | null;
+  isHost: boolean;
+  players: OnlinePlayer[];
+  connected: boolean;
+  
+  setOnline: (online: boolean) => void;
+  setRoomId: (roomId: string | null) => void;
+  setMyPlayerId: (id: string | null) => void;
+  setIsHost: (isHost: boolean) => void;
+  setPlayers: (players: OnlinePlayer[]) => void;
+  addPlayer: (player: OnlinePlayer) => void;
+  removePlayer: (playerId: string) => void;
+  setConnected: (connected: boolean) => void;
+  reset: () => void;
+}
+
+export const useOnlineStore = create<OnlineState>()(
+  devtools(
+    (set) => ({
+      isOnline: false,
+      roomId: null,
+      myPlayerId: null,
+      isHost: false,
+      players: [],
+      connected: false,
+      
+      setOnline: (online) => set({ isOnline: online }, false, 'setOnline'),
+      
+      setRoomId: (roomId) => set({ roomId }, false, 'setRoomId'),
+      
+      setMyPlayerId: (id) => set({ myPlayerId: id }, false, 'setMyPlayerId'),
+      
+      setIsHost: (isHost) => set({ isHost }, false, 'setIsHost'),
+      
+      setPlayers: (players) => set({ players }, false, 'setPlayers'),
+      
+      addPlayer: (player) =>
+        set((state) => ({
+          players: [...state.players, player]
+        }), false, 'addPlayer'),
+      
+      removePlayer: (playerId) =>
+        set((state) => ({
+          players: state.players.filter(p => p.id !== playerId)
+        }), false, 'removePlayer'),
+      
+      setConnected: (connected) => set({ connected }, false, 'setConnected'),
+      
+      reset: () =>
+        set({
+          isOnline: false,
+          roomId: null,
+          myPlayerId: null,
+          isHost: false,
+          players: [],
+          connected: false,
+        }, false, 'reset'),
+    }),
+    { name: 'OnlineStore' }
+  )
+);

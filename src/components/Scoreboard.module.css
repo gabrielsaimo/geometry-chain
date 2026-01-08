@@ -1,0 +1,70 @@
+.scoreboard {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 600px;
+  margin-top: 10px;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.player-card {
+  background: var(--panel-bg);
+  flex: 1;
+  padding: 10px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border: 2px solid transparent;
+  transition: all 0.3s;
+  min-width: 80px;
+  position: relative;
+  overflow: hidden;
+}
+
+.player-card.active {
+  border-color: currentColor;
+  background: rgba(255, 255, 255, 0.05);
+  transform: translateY(-3px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+.player-name {
+  font-size: 0.8rem;
+  font-weight: 700;
+  margin-bottom: 2px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.player-score {
+  font-size: 1.4rem;
+  font-weight: 900;
+}
+
+.turn-indicator {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+  display: none;
+}
+
+.player-card.active .turn-indicator {
+  display: block;
+}
+
+@media (max-width: 500px) {
+  .player-card {
+    min-width: 60px;
+    padding: 5px;
+  }
+}
