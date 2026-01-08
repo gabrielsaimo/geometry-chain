@@ -1,5 +1,7 @@
 import { memo, useState, useEffect, useCallback, useRef } from 'react';
 import { useGameStore } from '../store/gameStore';
+import { useOnlineStore } from '../store/onlineStore';
+import { useMultiplayer } from '../hooks/useMultiplayer';
 import { useCanvas } from '../hooks/useCanvas';
 import { useGameLogic } from '../hooks/useGameLogic';
 import { useFullscreen } from '../hooks/useFullscreen';
@@ -11,8 +13,10 @@ interface GameBoardProps {
 }
 
 const GameBoard = memo(({ onBack }: GameBoardProps) => {
-  const { setup, resetGame } = useGameStore();
-  const { makeMove, validateHoverLine, setNotificationHandler } = useGameLogic();
+  const { setup, resetGame, dots, currentPlayer, players } = useGameStore();
+  const { connected } = useOnlineStore();
+  const { sendMove } = useMultiplayer();
+  const { makeMove, validateHoverLine, setNotificationHandler } = useGameLogic(connected ? sendMove : undefined);
   const { canvasRef } = useCanvas(makeMove, validateHoverLine);
   const [notification, setNotification] = useState<string>('');
   const [showNotification, setShowNotification] = useState(false);
@@ -30,6 +34,35 @@ const GameBoard = memo(({ onBack }: GameBoardProps) => {
     setNotificationHandler(handleNotification);
   }, [setNotificationHandler, handleNotification]);
 
+  // Receber movimentos de outros jogadores (apenas no modo online)
+  useEffect(() => {
+    if (!connected) return;
+
+    const handleGameMessage = (event: CustomEvent) => {
+      const message = event.detail;
+      
+      if (message.type === 'MOVE') {
+        console.log('📥 Movimento recebido de outro jogador:', message.payload);
+        const { p1, p2 } = message.payload;
+        
+        // Encontrar os dots correspondentes
+        const dot1 = dots.find(d => d.id === p1.id);
+        const dot2 = dots.find(d => d.id === p2.id);
+        
+        if (dot1 && dot2) {
+          // Aplicar movimento como remoto (não envia de volta)
+          makeMove(dot1, dot2, true);
+        }
+      }
+    };
+
+    window.addEventListener('online-game-message', handleGameMessage as EventListener);
+
+    return () => {
+      window.removeEventListener('online-game-message', handleGameMessage as EventListener);
+    };
+  }, [connected, dots, makeMove]);
+
   const handleReset = () => {
     resetGame();
   };
@@ -41,6 +74,19 @@ const GameBoard = memo(({ onBack }: GameBoardProps) => {
         <div className={styles['rule-display']}>
           Regra: Conectar {setup.lineLength} pontos
         </div>
+        {connected && players[currentPlayer] && (
+          <div style={{ 
+            marginTop: '8px', 
+            padding: '8px 16px', 
+            backgroundColor: players[currentPlayer].color + '30',
+            border: `2px solid ${players[currentPlayer].color}`,
+            borderRadius: '8px',
+            color: '#fff',
+            fontWeight: 'bold'
+          }}>
+            Vez de: {players[currentPlayer].name}
+          </div>
+        )}
       </div>
 
       <div className={styles.controls}>

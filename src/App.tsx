@@ -16,13 +16,24 @@ function App() {
     if (connected && isGameStarted && screen === 'online') {
       console.log('🎮 Mudando para tela de jogo...');
       console.log('👥 Jogadores online:', onlinePlayers);
+      console.log('📊 Quantidade de jogadores:', onlinePlayers.length);
       
       // Sincronizar jogadores da sala online com o gameStore
       if (onlinePlayers.length > 0) {
-        setOnlinePlayers(onlinePlayers.map(p => ({
+        const mappedPlayers = onlinePlayers.map(p => ({
           name: p.name,
           color: p.color
-        })));
+        }));
+        console.log('✅ Sincronizando jogadores:', mappedPlayers);
+        setOnlinePlayers(mappedPlayers);
+        
+        // Verificar se foi setado corretamente
+        setTimeout(() => {
+          const gameState = useGameStore.getState();
+          console.log('🔍 Players no gameStore:', gameState.players);
+        }, 100);
+      } else {
+        console.error('❌ Nenhum jogador online para sincronizar!');
       }
       
       setScreen('game');

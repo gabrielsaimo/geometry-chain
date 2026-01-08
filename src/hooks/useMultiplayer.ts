@@ -227,8 +227,11 @@ export function useMultiplayer() {
         break;
 
       case 'MOVE':
-        // Será tratado externamente pelo GameBoard
+        // Emitir evento para o GameBoard processar
         console.log('🎯 Movimento recebido:', message.payload);
+        window.dispatchEvent(new CustomEvent('online-game-message', {
+          detail: message
+        }));
         break;
 
       case 'START_GAME':

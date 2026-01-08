@@ -82,16 +82,17 @@ export function useCanvas(
     ctx.lineCap = 'round';
     ctx.lineWidth = 4;
     lines.forEach(l => {
+      const playerColor = players[l.player]?.color || '#ffffff';
       ctx.beginPath();
       ctx.moveTo(l.p1.x, l.p1.y);
       ctx.lineTo(l.p2.x, l.p2.y);
-      ctx.strokeStyle = players[l.player]?.color || '#fff';
+      ctx.strokeStyle = playerColor;
       ctx.stroke();
     });
 
     // Linha de preview
     const { selectedDot, hoverLine } = interactionRef.current;
-    if (selectedDot && hoverLine) {
+    if (selectedDot && hoverLine && players[currentPlayer]) {
       ctx.beginPath();
       ctx.moveTo(hoverLine.p1.x, hoverLine.p1.y);
       
@@ -123,10 +124,11 @@ export function useCanvas(
       ctx.beginPath();
       ctx.arc(dot.x, dot.y, dotR, 0, Math.PI * 2);
 
+      const currentPlayerData = players[currentPlayer];
       if (selectedDot && selectedDot.id === dot.id) {
         ctx.fillStyle = '#fff';
         ctx.shadowBlur = 15;
-        ctx.shadowColor = players[currentPlayer].color;
+        ctx.shadowColor = currentPlayerData?.color || '#ffffff';
       } else if (selectedDot && hoverLine?.valid && 'id' in hoverLine.p2 && hoverLine.p2.id === dot.id) {
         ctx.fillStyle = '#fff';
         ctx.shadowBlur = 10;

@@ -1,5 +1,6 @@
 import { useCallback, useRef } from 'react';
 import { useGameStore } from '../store/gameStore';
+import { useOnlineStore } from '../store/onlineStore';
 import type { Dot, HoverLine } from '../types/game';
 import {
   isValidMove,
@@ -9,7 +10,7 @@ import {
   checkGameOver,
 } from '../utils/gameLogic';
 
-export function useGameLogic() {
+export function useGameLogic(sendMove?: (p1: Dot, p2: Dot) => Promise<void>) {
   const {
     setup,
     players,
@@ -24,6 +25,7 @@ export function useGameLogic() {
     setGameOver,
   } = useGameStore();
 
+  const { connected } = useOnlineStore();
   const notificationCallback = useRef<((text: string) => void) | null>(null);
 
   const setNotificationHandler = useCallback((handler: (text: string) => void) => {
@@ -31,7 +33,7 @@ export function useGameLogic() {
   }, []);
 
   const makeMove = useCallback(
-    (p1: Dot, p2: Dot) => {
+    async (p1: Dot, p2: Dot, isRemote = false) => {
       const validation = isValidMove(p1, p2, setup.lineLength, lines);
       if (!validation.valid || !validation.path) return;
 
@@ -81,6 +83,12 @@ export function useGameLogic() {
       if (checkGameOver(totalScore, setup.gridSize)) {
         setGameOver(true);
       }
+
+      // Se não for movimento remoto e estiver online, enviar para outros jogadores
+      if (!isRemote && connected && sendMove) {
+        console.log('📤 Enviando movimento para outros jogadores:', { p1, p2 });
+        await sendMove(p1, p2);
+      }
     },
     [
       setup.lineLength,
@@ -95,6 +103,8 @@ export function useGameLogic() {
       incrementScore,
       nextPlayer,
       setGameOver,
+      connected,
+      sendMove,
     ]
   );
 
