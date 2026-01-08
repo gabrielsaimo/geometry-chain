@@ -86,8 +86,18 @@ export function useGameLogic(sendMove?: (p1: Dot, p2: Dot) => Promise<void>) {
 
       // Se não for movimento remoto e estiver online, enviar para outros jogadores
       if (!isRemote && connected && sendMove) {
-        console.log('📤 Enviando movimento para outros jogadores:', { p1, p2 });
+        console.log('📤 ENVIANDO MOVIMENTO PARA OUTROS JOGADORES!');
+        console.log('📍 P1:', p1);
+        console.log('📍 P2:', p2);
+        console.log('🌐 Connected:', connected);
         await sendMove(p1, p2);
+        console.log('✅ Movimento enviado com sucesso');
+      } else {
+        console.log('⏭️ Movimento remoto ou offline, não enviando:', {
+          isRemote,
+          connected,
+          hasSendMove: !!sendMove
+        });
       }
     },
     [

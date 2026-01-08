@@ -44,7 +44,7 @@ export function useMultiplayer() {
       // Criar canal do Supabase Realtime
       const channel = supabase.channel(roomId, {
         config: {
-          broadcast: { self: true, ack: false },
+          broadcast: { self: false, ack: false },
           presence: { key: playerId },
         },
       });
@@ -124,7 +124,7 @@ export function useMultiplayer() {
       // Conectar ao canal existente
       const channel = supabase.channel(roomIdToJoin, {
         config: {
-          broadcast: { self: true, ack: false },
+          broadcast: { self: false, ack: false },
           presence: { key: playerId },
         },
       });
@@ -215,11 +215,7 @@ export function useMultiplayer() {
   // Processar mensagens recebidas
   const handleIncomingMessage = useCallback((message: GameMessage) => {
     console.log('📨 Mensagem recebida:', message);
-
-    // Ignorar mensagens próprias
-    if (message.playerId === myPlayerIdRef.current) {
-      return;
-    }
+    console.log('🔑 Meu ID:', myPlayerIdRef.current, '| ID da mensagem:', message.playerId);
 
     switch (message.type) {
       case 'PLAYER_JOIN':
@@ -228,10 +224,12 @@ export function useMultiplayer() {
 
       case 'MOVE':
         // Emitir evento para o GameBoard processar
-        console.log('🎯 Movimento recebido:', message.payload);
+        console.log('🎯 MOVIMENTO RECEBIDO DE OUTRO JOGADOR!', message.payload);
+        console.log('📍 Disparando evento online-game-message...');
         window.dispatchEvent(new CustomEvent('online-game-message', {
           detail: message
         }));
+        console.log('✅ Evento disparado');
         break;
 
       case 'START_GAME':

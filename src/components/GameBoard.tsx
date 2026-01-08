@@ -36,29 +36,52 @@ const GameBoard = memo(({ onBack }: GameBoardProps) => {
 
   // Receber movimentos de outros jogadores (apenas no modo online)
   useEffect(() => {
-    if (!connected) return;
+    if (!connected) {
+      console.log('⚠️ Não conectado, listener de movimentos não ativo');
+      return;
+    }
+
+    console.log('✅ Listener de movimentos online ATIVADO');
 
     const handleGameMessage = (event: CustomEvent) => {
+      console.log('🎉 EVENTO online-game-message CAPTURADO NO GAMEBOARD!');
       const message = event.detail;
+      console.log('📦 Detalhes da mensagem:', message);
       
       if (message.type === 'MOVE') {
-        console.log('📥 Movimento recebido de outro jogador:', message.payload);
+        console.log('🎯 PROCESSANDO MOVIMENTO DE OUTRO JOGADOR!');
+        console.log('📍 Payload:', message.payload);
         const { p1, p2 } = message.payload;
+        
+        console.log('🔍 Procurando dots correspondentes...');
+        console.log('📊 Total de dots disponíveis:', dots.length);
         
         // Encontrar os dots correspondentes
         const dot1 = dots.find(d => d.id === p1.id);
         const dot2 = dots.find(d => d.id === p2.id);
         
+        console.log('🔍 Dot1 encontrado:', dot1);
+        console.log('🔍 Dot2 encontrado:', dot2);
+        
         if (dot1 && dot2) {
+          console.log('✅ Aplicando movimento remoto...');
           // Aplicar movimento como remoto (não envia de volta)
           makeMove(dot1, dot2, true);
+          console.log('✅ Movimento remoto aplicado!');
+        } else {
+          console.error('❌ Dots não encontrados!', {
+            buscando: { p1Id: p1.id, p2Id: p2.id },
+            encontrado: { dot1: !!dot1, dot2: !!dot2 }
+          });
         }
       }
     };
 
     window.addEventListener('online-game-message', handleGameMessage as EventListener);
+    console.log('👂 Event listener registrado para online-game-message');
 
     return () => {
+      console.log('🔇 Removendo listener de movimentos online');
       window.removeEventListener('online-game-message', handleGameMessage as EventListener);
     };
   }, [connected, dots, makeMove]);
