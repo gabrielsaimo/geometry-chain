@@ -1,279 +1,331 @@
 import { useEffect, useRef, useCallback } from 'react';
-import Peer from 'peerjs';
-import type { DataConnection } from 'peerjs';
+import type { RealtimeChannel } from '@supabase/supabase-js';
+import { supabase, type GameMessage } from '../config/supabase';
 import { useOnlineStore } from '../store/onlineStore';
 import { useGameStore } from '../store/gameStore';
-import type { GameAction, MoveAction, OnlinePlayer } from '../types/online';
+import type { OnlinePlayer } from '../types/online';
 
 export function useMultiplayer() {
-  const peerRef = useRef<Peer | null>(null);
-  const connectionsRef = useRef<Map<string, DataConnection>>(new Map());
+  const channelRef = useRef<RealtimeChannel | null>(null);
+  const myPlayerIdRef = useRef<string>('');
   
   const {
-    isOnline,
     roomId,
-    myPlayerId,
     isHost,
     players,
     setRoomId,
     setMyPlayerId,
     setIsHost,
-    addPlayer,
-    removePlayer,
     setPlayers,
+    removePlayer,
     setConnected,
     reset: resetOnline,
   } = useOnlineStore();
 
-  // const { currentPlayer, players: gamePlayers } = useGameStore();
+  // Gerar ID único para o jogador
+  const generatePlayerId = useCallback(() => {
+    return `player_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }, []);
 
   // Criar sala (Host)
-  const createRoom = useCallback((playerName: string) => {
+  const createRoom = useCallback(async (playerName: string) => {
     try {
-      const peer = new Peer({
-        host: '0.peerjs.com',
-        port: 443,
-        path: '/',
-        secure: true,
+      const playerId = generatePlayerId();
+      const roomId = `room_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+      
+      myPlayerIdRef.current = playerId;
+      setMyPlayerId(playerId);
+      setRoomId(roomId);
+      setIsHost(true);
+
+      console.log('✅ Criando sala:', roomId);
+
+      // Criar canal do Supabase Realtime
+      const channel = supabase.channel(roomId, {
         config: {
-          iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' },
-            { urls: 'stun:stun2.l.google.com:19302' },
-          ]
+          broadcast: { self: true },
+          presence: { key: playerId },
         },
-        debug: 2,
       });
 
-      peer.on('open', (id) => {
-        console.log('✅ Peer criado com ID:', id);
-        setMyPlayerId(id);
-        setRoomId(id);
-        setIsHost(true);
-        
-        const hostPlayer: OnlinePlayer = {
-          id,
-          name: playerName,
-          color: '#ef4444',
-          isHost: true,
-        };
-        
-        setPlayers([hostPlayer]);
-        setConnected(true);
+      // Configurar presença (quem está online)
+      channel
+        .on('presence', { event: 'sync' }, () => {
+          const state = channel.presenceState();
+          console.log('🔄 Presença atualizada:', state);
+          
+          const onlinePlayers: OnlinePlayer[] = Object.values(state)
+            .flat()
+            .map((p: any) => ({
+              id: p.id,
+              name: p.name,
+              color: p.color,
+              isHost: p.isHost,
+            }));
+          
+          setPlayers(onlinePlayers);
+        })
+        .on('presence', { event: 'join' }, ({ key, newPresences }) => {
+          console.log('✅ Jogador entrou:', key, newPresences);
+        })
+        .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+          console.log('❌ Jogador saiu:', key, leftPresences);
+        })
+        .on('broadcast', { event: 'game-action' }, ({ payload }) => {
+          handleIncomingMessage(payload as GameMessage);
+        });
+
+      // Subscrever ao canal
+      await channel.subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Conectado ao canal:', roomId);
+          
+          // Enviar presença do host
+          await channel.track({
+            id: playerId,
+            name: playerName,
+            color: '#ef4444',
+            isHost: true,
+            online_at: new Date().toISOString(),
+          });
+          
+          setConnected(true);
+        } else if (status === 'CHANNEL_ERROR') {
+          throw new Error('Erro ao conectar ao canal');
+        }
       });
 
-      peer.on('connection', (conn) => {
-        console.log('🔗 Nova conexão recebida:', conn.peer);
-        connectionsRef.current.set(conn.peer, conn);
-
-        conn.on('open', () => {
-          console.log('✅ Conexão aberta com:', conn.peer);
-        });
-
-        conn.on('data', (data) => {
-          handleIncomingData(data as any, conn.peer);
-        });
-
-        conn.on('close', () => {
-          console.log('❌ Conexão fechada:', conn.peer);
-          connectionsRef.current.delete(conn.peer);
-          removePlayer(conn.peer);
-        });
-        
-        conn.on('error', (error) => {
-          console.error('❌ Erro na conexão:', error);
-        });
-      });
-
-      peer.on('error', (error) => {
-        console.error('❌ Erro no peer (createRoom):', error);
-        const errorMsg = error.type === 'peer-unavailable' 
-          ? 'Código da sala inválido ou expirado'
-          : error.type === 'network'
-          ? 'Erro de conexão de rede'
-          : error.type || error.message || 'Erro desconhecido';
-        alert(`Erro ao criar sala: ${errorMsg}. Tente novamente.`);
-        setConnected(false);
-      });
-
-      peerRef.current = peer;
+      channelRef.current = channel;
     } catch (error) {
-      console.error('❌ Erro ao criar peer:', error);
-      alert('Erro ao criar sala. Verifique sua conexão e tente novamente.');
+      console.error('❌ Erro ao criar sala:', error);
+      alert('Erro ao criar sala. Tente novamente.');
       setConnected(false);
     }
-  }, [setMyPlayerId, setRoomId, setIsHost, setPlayers, setConnected, removePlayer]);
+  }, [generatePlayerId, setMyPlayerId, setRoomId, setIsHost, setPlayers, setConnected]);
 
   // Entrar em sala
-  const joinRoom = useCallback((roomId: string, playerName: string) => {
+  const joinRoom = useCallback(async (roomIdToJoin: string, playerName: string) => {
     try {
-      const peer = new Peer({
-        host: '0.peerjs.com',
-        port: 443,
-        path: '/',
-        secure: true,
+      const playerId = generatePlayerId();
+      
+      myPlayerIdRef.current = playerId;
+      setMyPlayerId(playerId);
+      setRoomId(roomIdToJoin);
+      setIsHost(false);
+
+      console.log('🔗 Entrando na sala:', roomIdToJoin);
+
+      // Conectar ao canal existente
+      const channel = supabase.channel(roomIdToJoin, {
         config: {
-          iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' },
-            { urls: 'stun:stun2.l.google.com:19302' },
-          ]
+          broadcast: { self: true },
+          presence: { key: playerId },
         },
-        debug: 2,
       });
 
-      peer.on('open', (myId) => {
-        console.log('✅ Meu ID:', myId);
-        console.log('🔗 Tentando conectar ao room:', roomId);
-        setMyPlayerId(myId);
-        setRoomId(roomId);
-        setIsHost(false);
-
-        const conn = peer.connect(roomId, {
-          reliable: true,
+      // Configurar presença
+      channel
+        .on('presence', { event: 'sync' }, () => {
+          const state = channel.presenceState();
+          console.log('🔄 Presença atualizada:', state);
+          
+          const onlinePlayers: OnlinePlayer[] = Object.values(state)
+            .flat()
+            .map((p: any) => ({
+              id: p.id,
+              name: p.name,
+              color: p.color,
+              isHost: p.isHost,
+            }));
+          
+          setPlayers(onlinePlayers);
+        })
+        .on('presence', { event: 'join' }, ({ key, newPresences }) => {
+          console.log('✅ Jogador entrou:', key, newPresences);
+        })
+        .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+          console.log('❌ Jogador saiu:', key, leftPresences);
+        })
+        .on('broadcast', { event: 'game-action' }, ({ payload }) => {
+          handleIncomingMessage(payload as GameMessage);
         });
-        connectionsRef.current.set(roomId, conn);
 
-        conn.on('open', () => {
-          console.log('✅ Conectado ao host');
+      // Subscrever ao canal
+      await channel.subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Conectado à sala:', roomIdToJoin);
+          
+          // Escolher cor diferente do host
+          const colors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'];
+          const usedColors = players.map(p => p.color);
+          const availableColor = colors.find(c => !usedColors.includes(c)) || colors[0];
+          
+          // Enviar presença
+          await channel.track({
+            id: playerId,
+            name: playerName,
+            color: availableColor,
+            isHost: false,
+            online_at: new Date().toISOString(),
+          });
+          
           setConnected(true);
           
-          // Enviar info do jogador ao host
-          const joinAction: GameAction = {
+          // Notificar entrada
+          const joinMessage: GameMessage = {
             type: 'PLAYER_JOIN',
             payload: {
-              id: myId,
+              id: playerId,
               name: playerName,
-              color: '#3b82f6',
+              color: availableColor,
               isHost: false,
             },
-            playerId: myId,
+            playerId,
             timestamp: Date.now(),
           };
           
-          conn.send(joinAction);
-        });
-
-        conn.on('data', (data) => {
-          handleIncomingData(data as any, roomId);
-        });
-
-        conn.on('close', () => {
-          console.log('❌ Desconectado do host');
-          setConnected(false);
-          connectionsRef.current.delete(roomId);
-        });
-
-        conn.on('error', (error) => {
-          console.error('❌ Erro na conexão:', error);
-          alert(`Erro ao conectar: ${error}. Verifique se o código da sala está correto.`);
-          setConnected(false);
-        });
+          await channel.send({
+            type: 'broadcast',
+            event: 'game-action',
+            payload: joinMessage,
+          });
+        } else if (status === 'CHANNEL_ERROR') {
+          throw new Error('Sala não encontrada ou erro de conexão');
+        }
       });
 
-      peer.on('error', (error) => {
-        console.error('❌ Erro no peer (joinRoom):', error);
-        const errorMsg = error.type === 'peer-unavailable' 
-          ? 'Código da sala inválido ou expirado'
-          : error.type === 'network'
-          ? 'Erro de conexão de rede'
-          : error.type || error.message || 'Erro desconhecido';
-        alert(`Erro: ${errorMsg}. Verifique o código da sala e tente novamente.`);
-        setConnected(false);
-      });
-
-      peerRef.current = peer;
+      channelRef.current = channel;
     } catch (error) {
-      console.error('❌ Erro ao criar peer:', error);
-      alert('Erro ao entrar na sala. Verifique sua conexão e tente novamente.');
+      console.error('❌ Erro ao entrar na sala:', error);
+      alert('Erro ao entrar na sala. Verifique o código e tente novamente.');
       setConnected(false);
     }
-  }, [setMyPlayerId, setRoomId, setIsHost, setConnected]);
+  }, [generatePlayerId, setMyPlayerId, setRoomId, setIsHost, setPlayers, setConnected, players]);
 
-  // Processar dados recebidos
-  const handleIncomingData = useCallback((action: GameAction, _peerId: string) => {
-    console.log('Ação recebida:', action);
+  // Processar mensagens recebidas
+  const handleIncomingMessage = useCallback((message: GameMessage) => {
+    console.log('📨 Mensagem recebida:', message);
 
-    switch (action.type) {
+    // Ignorar mensagens próprias
+    if (message.playerId === myPlayerIdRef.current) {
+      return;
+    }
+
+    switch (message.type) {
       case 'PLAYER_JOIN':
-        if (isHost) {
-          // Host adiciona o jogador e envia estado atual
-          addPlayer(action.payload);
-          
-          // Enviar lista atualizada de jogadores para todos
-          const updatedPlayers = [...players, action.payload];
-          broadcast({
-            type: 'UPDATE_SCORE',
-            payload: { players: updatedPlayers },
-            playerId: myPlayerId || '',
-            timestamp: Date.now(),
-          });
-        } else {
-          // Cliente recebe lista atualizada
-          if (action.payload.players) {
-            setPlayers(action.payload.players);
-          }
-        }
+        console.log('👋 Jogador entrou:', message.payload);
         break;
 
       case 'MOVE':
-        // Aplicar movimento recebido
-        // const moveData = action.payload as MoveAction;
-        // useGameLogic.makeMove será chamado externamente
+        // Será tratado externamente pelo GameBoard
+        console.log('🎯 Movimento recebido:', message.payload);
+        break;
+
+      case 'START_GAME':
+        console.log('🎮 Jogo iniciado!');
         break;
 
       case 'RESET':
-        // Resetar jogo
+        console.log('🔄 Jogo resetado');
         useGameStore.getState().resetGame();
         break;
 
       case 'UPDATE_SCORE':
-        if (action.payload.players) {
-          setPlayers(action.payload.players);
+        console.log('📊 Pontuação atualizada:', message.payload);
+        if (message.payload.players) {
+          setPlayers(message.payload.players);
         }
         break;
-    }
-  }, [isHost, players, myPlayerId, addPlayer, setPlayers]);
 
-  // Broadcast para todos os peers
-  const broadcast = useCallback((action: GameAction) => {
-    connectionsRef.current.forEach((conn) => {
-      if (conn.open) {
-        conn.send(action);
-      }
-    });
+      case 'PLAYER_LEAVE':
+        console.log('👋 Jogador saiu:', message.payload);
+        removePlayer(message.payload.playerId);
+        break;
+    }
+  }, [setPlayers, removePlayer]);
+
+  // Enviar mensagem (broadcast)
+  const broadcast = useCallback(async (message: GameMessage) => {
+    if (!channelRef.current) {
+      console.warn('⚠️ Canal não está conectado');
+      return;
+    }
+
+    try {
+      await channelRef.current.send({
+        type: 'broadcast',
+        event: 'game-action',
+        payload: message,
+      });
+      console.log('📤 Mensagem enviada:', message.type);
+    } catch (error) {
+      console.error('❌ Erro ao enviar mensagem:', error);
+    }
   }, []);
 
   // Enviar movimento
-  const sendMove = useCallback((p1: any, p2: any) => {
-    if (!isOnline || !myPlayerId) return;
-
-    const action: GameAction = {
+  const sendMove = useCallback(async (p1: any, p2: any) => {
+    const message: GameMessage = {
       type: 'MOVE',
-      payload: { p1, p2 } as MoveAction,
-      playerId: myPlayerId,
+      payload: { p1, p2 },
+      playerId: myPlayerIdRef.current,
       timestamp: Date.now(),
     };
 
-    broadcast(action);
-  }, [isOnline, myPlayerId, broadcast]);
+    await broadcast(message);
+  }, [broadcast]);
 
-  // Deixar sala
-  const leaveRoom = useCallback(() => {
-    if (peerRef.current) {
-      peerRef.current.destroy();
-      peerRef.current = null;
+  // Iniciar jogo (apenas host)
+  const startGame = useCallback(async () => {
+    if (!isHost) {
+      console.warn('⚠️ Apenas o host pode iniciar o jogo');
+      return;
     }
-    
-    connectionsRef.current.clear();
+
+    const message: GameMessage = {
+      type: 'START_GAME',
+      payload: { players },
+      playerId: myPlayerIdRef.current,
+      timestamp: Date.now(),
+    };
+
+    await broadcast(message);
+  }, [isHost, players, broadcast]);
+
+  // Sair da sala
+  const leaveRoom = useCallback(async () => {
+    if (channelRef.current) {
+      try {
+        // Notificar saída
+        const leaveMessage: GameMessage = {
+          type: 'PLAYER_LEAVE',
+          payload: { playerId: myPlayerIdRef.current },
+          playerId: myPlayerIdRef.current,
+          timestamp: Date.now(),
+        };
+
+        await channelRef.current.send({
+          type: 'broadcast',
+          event: 'game-action',
+          payload: leaveMessage,
+        });
+
+        // Unsubscribe e limpar
+        await channelRef.current.unsubscribe();
+        channelRef.current = null;
+      } catch (error) {
+        console.error('❌ Erro ao sair da sala:', error);
+      }
+    }
+
     resetOnline();
   }, [resetOnline]);
 
-  // Cleanup
+  // Cleanup ao desmontar
   useEffect(() => {
     return () => {
-      if (peerRef.current) {
-        peerRef.current.destroy();
+      if (channelRef.current) {
+        channelRef.current.unsubscribe();
       }
     };
   }, []);
@@ -283,10 +335,10 @@ export function useMultiplayer() {
     joinRoom,
     leaveRoom,
     sendMove,
+    startGame,
     broadcast,
-    isOnline,
     roomId,
     isHost,
-    players: players,
+    players,
   };
 }

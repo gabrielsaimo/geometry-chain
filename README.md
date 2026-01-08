@@ -38,9 +38,15 @@ Acesse **http://localhost:5173**
 
 ---
 
-## 🌐 Multiplayer Online (Novo! - v2.1.0)
+## 🌐 Multiplayer Online (v2.1.0 - Supabase Realtime)
 
-✅ **Totalmente funcional no Vercel com PeerJS!**
+✅ **100% Estável e Funcional no Vercel!**
+
+### 🔧 Tecnologia
+- **Supabase Realtime** - WebSocket estável e gratuito
+- **Presença em tempo real** - Veja quem está online
+- **Broadcast** - Comunicação instantânea
+- **Grátis** - Até 500 conexões simultâneas
 
 ### 🎮 Criar Sala
 1. Clique em **"JOGAR ONLINE"**
@@ -56,18 +62,9 @@ Acesse **http://localhost:5173**
 4. Clique em **"Entrar na Sala"**
 5. Aguarde o host iniciar!
 
-### 🔧 Tecnologia
-- **PeerJS** - Conexão P2P (peer-to-peer)
-- **WebRTC** - Comunicação direta entre jogadores
-- **HTTPS/WSS** - Seguro e criptografado
-- **0.peerjs.com** - Servidor público gratuito
-
-### 📖 Mais Informações
-Ver [ONLINE_MODE_GUIDE.md](ONLINE_MODE_GUIDE.md) para:
-- Solução de problemas
-- Navegadores suportados
-- Dicas de performance
-- Limitações conhecidas
+### 📖 Documentação
+- [SUPABASE_MIGRATION.md](SUPABASE_MIGRATION.md) - Por que migramos do PeerJS
+- [ONLINE_MODE_GUIDE.md](ONLINE_MODE_GUIDE.md) - Guia completo de uso
 2. Digite seu nome + código da sala
 3. Conecte e jogue!
 

@@ -14,17 +14,17 @@ const OnlineRoom = memo(({ onClose, onStartGame }: OnlineRoomProps) => {
   const [roomIdInput, setRoomIdInput] = useState('');
   const [copied, setCopied] = useState(false);
   
-  const { createRoom, joinRoom, leaveRoom, roomId, isHost, players } = useMultiplayer();
+  const { createRoom, joinRoom, leaveRoom, startGame, roomId, isHost, players } = useMultiplayer();
   const { connected } = useOnlineStore();
 
-  const handleCreateRoom = useCallback(() => {
+  const handleCreateRoom = useCallback(async () => {
     if (!playerName.trim()) return;
-    createRoom(playerName);
+    await createRoom(playerName);
   }, [playerName, createRoom]);
 
-  const handleJoinRoom = useCallback(() => {
+  const handleJoinRoom = useCallback(async () => {
     if (!playerName.trim() || !roomIdInput.trim()) return;
-    joinRoom(roomIdInput, playerName);
+    await joinRoom(roomIdInput, playerName);
   }, [playerName, roomIdInput, joinRoom]);
 
   const handleCopyRoomId = useCallback(() => {
@@ -35,16 +35,17 @@ const OnlineRoom = memo(({ onClose, onStartGame }: OnlineRoomProps) => {
     }
   }, [roomId]);
 
-  const handleLeave = useCallback(() => {
-    leaveRoom();
+  const handleLeave = useCallback(async () => {
+    await leaveRoom();
     onClose();
   }, [leaveRoom, onClose]);
 
-  const handleStart = useCallback(() => {
+  const handleStart = useCallback(async () => {
     if (players.length >= 2) {
+      await startGame();
       onStartGame();
     }
-  }, [players, onStartGame]);
+  }, [players, startGame, onStartGame]);
 
   return (
     <div className={styles['online-modal']}>
