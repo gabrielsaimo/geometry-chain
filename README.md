@@ -38,16 +38,36 @@ Acesse **http://localhost:5173**
 
 ---
 
-## 🌐 Multiplayer Online (Novo!)
+## 🌐 Multiplayer Online (Novo! - v2.1.0)
 
-### Criar Sala
+✅ **Totalmente funcional no Vercel com PeerJS!**
+
+### 🎮 Criar Sala
 1. Clique em **"JOGAR ONLINE"**
 2. Digite seu nome → **"Criar Sala"**
-3. Compartilhe o código com amigos
-4. Aguarde jogadores e inicie!
+3. **Copie e compartilhe** o código da sala
+4. Aguarde 2+ jogadores entrarem
+5. Clique em **"Iniciar Jogo"**!
 
-### Entrar em Sala  
+### 🤝 Entrar em Sala  
 1. **"JOGAR ONLINE"** → **"Entrar em Sala"**
+2. Digite seu nome
+3. **Cole o código da sala** que recebeu
+4. Clique em **"Entrar na Sala"**
+5. Aguarde o host iniciar!
+
+### 🔧 Tecnologia
+- **PeerJS** - Conexão P2P (peer-to-peer)
+- **WebRTC** - Comunicação direta entre jogadores
+- **HTTPS/WSS** - Seguro e criptografado
+- **0.peerjs.com** - Servidor público gratuito
+
+### 📖 Mais Informações
+Ver [ONLINE_MODE_GUIDE.md](ONLINE_MODE_GUIDE.md) para:
+- Solução de problemas
+- Navegadores suportados
+- Dicas de performance
+- Limitações conhecidas
 2. Digite seu nome + código da sala
 3. Conecte e jogue!
 

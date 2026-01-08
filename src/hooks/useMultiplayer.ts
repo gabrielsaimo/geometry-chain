@@ -29,118 +29,165 @@ export function useMultiplayer() {
 
   // Criar sala (Host)
   const createRoom = useCallback((playerName: string) => {
-    const peer = new Peer({
-      config: {
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' },
-        ]
-      }
-    });
-
-    peer.on('open', (id) => {
-      console.log('Peer criado com ID:', id);
-      setMyPlayerId(id);
-      setRoomId(id);
-      setIsHost(true);
-      
-      const hostPlayer: OnlinePlayer = {
-        id,
-        name: playerName,
-        color: '#ef4444',
-        isHost: true,
-      };
-      
-      setPlayers([hostPlayer]);
-      setConnected(true);
-    });
-
-    peer.on('connection', (conn) => {
-      console.log('Nova conexão recebida:', conn.peer);
-      connectionsRef.current.set(conn.peer, conn);
-
-      conn.on('open', () => {
-        console.log('Conexão aberta com:', conn.peer);
+    try {
+      const peer = new Peer({
+        host: '0.peerjs.com',
+        port: 443,
+        path: '/',
+        secure: true,
+        config: {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+          ]
+        },
+        debug: 2,
       });
 
-      conn.on('data', (data) => {
-        handleIncomingData(data as any, conn.peer);
+      peer.on('open', (id) => {
+        console.log('✅ Peer criado com ID:', id);
+        setMyPlayerId(id);
+        setRoomId(id);
+        setIsHost(true);
+        
+        const hostPlayer: OnlinePlayer = {
+          id,
+          name: playerName,
+          color: '#ef4444',
+          isHost: true,
+        };
+        
+        setPlayers([hostPlayer]);
+        setConnected(true);
       });
 
-      conn.on('close', () => {
-        console.log('Conexão fechada:', conn.peer);
-        connectionsRef.current.delete(conn.peer);
-        removePlayer(conn.peer);
+      peer.on('connection', (conn) => {
+        console.log('🔗 Nova conexão recebida:', conn.peer);
+        connectionsRef.current.set(conn.peer, conn);
+
+        conn.on('open', () => {
+          console.log('✅ Conexão aberta com:', conn.peer);
+        });
+
+        conn.on('data', (data) => {
+          handleIncomingData(data as any, conn.peer);
+        });
+
+        conn.on('close', () => {
+          console.log('❌ Conexão fechada:', conn.peer);
+          connectionsRef.current.delete(conn.peer);
+          removePlayer(conn.peer);
+        });
+        
+        conn.on('error', (error) => {
+          console.error('❌ Erro na conexão:', error);
+        });
       });
-    });
 
-    peer.on('error', (error) => {
-      console.error('Erro no peer:', error);
-    });
+      peer.on('error', (error) => {
+        console.error('❌ Erro no peer (createRoom):', error);
+        const errorMsg = error.type === 'peer-unavailable' 
+          ? 'Código da sala inválido ou expirado'
+          : error.type === 'network'
+          ? 'Erro de conexão de rede'
+          : error.type || error.message || 'Erro desconhecido';
+        alert(`Erro ao criar sala: ${errorMsg}. Tente novamente.`);
+        setConnected(false);
+      });
 
-    peerRef.current = peer;
+      peerRef.current = peer;
+    } catch (error) {
+      console.error('❌ Erro ao criar peer:', error);
+      alert('Erro ao criar sala. Verifique sua conexão e tente novamente.');
+      setConnected(false);
+    }
   }, [setMyPlayerId, setRoomId, setIsHost, setPlayers, setConnected, removePlayer]);
 
   // Entrar em sala
   const joinRoom = useCallback((roomId: string, playerName: string) => {
-    const peer = new Peer({
-      config: {
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' },
-        ]
-      }
-    });
-
-    peer.on('open', (myId) => {
-      console.log('Meu ID:', myId);
-      setMyPlayerId(myId);
-      setRoomId(roomId);
-      setIsHost(false);
-
-      const conn = peer.connect(roomId);
-      connectionsRef.current.set(roomId, conn);
-
-      conn.on('open', () => {
-        console.log('Conectado ao host');
-        setConnected(true);
-        
-        // Enviar info do jogador ao host
-        const joinAction: GameAction = {
-          type: 'PLAYER_JOIN',
-          payload: {
-            id: myId,
-            name: playerName,
-            color: '#3b82f6',
-            isHost: false,
-          },
-          playerId: myId,
-          timestamp: Date.now(),
-        };
-        
-        conn.send(joinAction);
+    try {
+      const peer = new Peer({
+        host: '0.peerjs.com',
+        port: 443,
+        path: '/',
+        secure: true,
+        config: {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+          ]
+        },
+        debug: 2,
       });
 
-      conn.on('data', (data) => {
-        handleIncomingData(data as any, roomId);
+      peer.on('open', (myId) => {
+        console.log('✅ Meu ID:', myId);
+        console.log('🔗 Tentando conectar ao room:', roomId);
+        setMyPlayerId(myId);
+        setRoomId(roomId);
+        setIsHost(false);
+
+        const conn = peer.connect(roomId, {
+          reliable: true,
+        });
+        connectionsRef.current.set(roomId, conn);
+
+        conn.on('open', () => {
+          console.log('✅ Conectado ao host');
+          setConnected(true);
+          
+          // Enviar info do jogador ao host
+          const joinAction: GameAction = {
+            type: 'PLAYER_JOIN',
+            payload: {
+              id: myId,
+              name: playerName,
+              color: '#3b82f6',
+              isHost: false,
+            },
+            playerId: myId,
+            timestamp: Date.now(),
+          };
+          
+          conn.send(joinAction);
+        });
+
+        conn.on('data', (data) => {
+          handleIncomingData(data as any, roomId);
+        });
+
+        conn.on('close', () => {
+          console.log('❌ Desconectado do host');
+          setConnected(false);
+          connectionsRef.current.delete(roomId);
+        });
+
+        conn.on('error', (error) => {
+          console.error('❌ Erro na conexão:', error);
+          alert(`Erro ao conectar: ${error}. Verifique se o código da sala está correto.`);
+          setConnected(false);
+        });
       });
 
-      conn.on('close', () => {
-        console.log('Desconectado do host');
+      peer.on('error', (error) => {
+        console.error('❌ Erro no peer (joinRoom):', error);
+        const errorMsg = error.type === 'peer-unavailable' 
+          ? 'Código da sala inválido ou expirado'
+          : error.type === 'network'
+          ? 'Erro de conexão de rede'
+          : error.type || error.message || 'Erro desconhecido';
+        alert(`Erro: ${errorMsg}. Verifique o código da sala e tente novamente.`);
         setConnected(false);
-        connectionsRef.current.delete(roomId);
       });
 
-      conn.on('error', (error) => {
-        console.error('Erro na conexão:', error);
-      });
-    });
-
-    peer.on('error', (error) => {
-      console.error('Erro no peer:', error);
-    });
-
-    peerRef.current = peer;
+      peerRef.current = peer;
+    } catch (error) {
+      console.error('❌ Erro ao criar peer:', error);
+      alert('Erro ao entrar na sala. Verifique sua conexão e tente novamente.');
+      setConnected(false);
+    }
   }, [setMyPlayerId, setRoomId, setIsHost, setConnected]);
 
   // Processar dados recebidos
