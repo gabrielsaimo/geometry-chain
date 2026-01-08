@@ -20,6 +20,7 @@ interface GameState {
   // Actions
   updateSetup: (setup: Partial<GameSetup>) => void;
   setPlayers: (names: string[]) => void;
+  setOnlinePlayers: (players: Array<{name: string; color: string}>) => void;
   setDots: (dots: Dot[]) => void;
   addLine: (line: Line) => void;
   addTriangle: (triangle: Triangle) => void;
@@ -60,6 +61,15 @@ export const useGameStore = create<GameState>()(
             score: 0,
           }))
         }), false, 'setPlayers'),
+      
+      setOnlinePlayers: (onlinePlayers) =>
+        set(() => ({
+          players: onlinePlayers.map((player) => ({
+            name: player.name,
+            color: player.color,
+            score: 0,
+          }))
+        }), false, 'setOnlinePlayers'),
       
       setDots: (dots) => 
         set({ dots }, false, 'setDots'),

@@ -8,16 +8,26 @@ import { useOnlineStore } from './store/onlineStore';
 
 function App() {
   const [screen, setScreen] = useState<'setup' | 'game' | 'online'>('setup');
-  const { resetGame } = useGameStore();
-  const { connected, isGameStarted } = useOnlineStore();
+  const { resetGame, setOnlinePlayers } = useGameStore();
+  const { connected, isGameStarted, players: onlinePlayers } = useOnlineStore();
 
   // Se estiver conectado e o jogo iniciar, mudar para tela de jogo
   useEffect(() => {
     if (connected && isGameStarted && screen === 'online') {
       console.log('🎮 Mudando para tela de jogo...');
+      console.log('👥 Jogadores online:', onlinePlayers);
+      
+      // Sincronizar jogadores da sala online com o gameStore
+      if (onlinePlayers.length > 0) {
+        setOnlinePlayers(onlinePlayers.map(p => ({
+          name: p.name,
+          color: p.color
+        })));
+      }
+      
       setScreen('game');
     }
-  }, [connected, isGameStarted, screen]);
+  }, [connected, isGameStarted, screen, onlinePlayers, setOnlinePlayers]);
 
   const handleStart = () => {
     setScreen('game');
