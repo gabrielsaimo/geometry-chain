@@ -1,13 +1,19 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useRef, useCallback } from 'react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase, type GameMessage } from '../config/supabase';
 import { useOnlineStore } from '../store/onlineStore';
 import { useGameStore } from '../store/gameStore';
 import type { OnlinePlayer } from '../types/online';
 
+// Singleton de conexão: precisa sobreviver à troca de telas (OnlineRoom -> GameBoard)
+// Senão cada tela cria um hook separado e perde o canal.
+let sharedChannel: RealtimeChannel | null = null;
+let sharedMyPlayerId = '';
+
 export function useMultiplayer() {
-  const channelRef = useRef<RealtimeChannel | null>(null);
-  const myPlayerIdRef = useRef<string>('');
+  // refs locais apenas para não quebrar assinaturas do React; o estado real é global
+  const channelRef = useRef<RealtimeChannel | null>(sharedChannel);
+  const myPlayerIdRef = useRef<string>(sharedMyPlayerId);
   
   const {
     roomId,
@@ -43,6 +49,7 @@ export function useMultiplayer() {
       const playerId = generatePlayerId();
       const roomId = `room_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
       
+      sharedMyPlayerId = playerId;
       myPlayerIdRef.current = playerId;
       setMyPlayerId(playerId);
       setRoomId(roomId);
@@ -52,6 +59,14 @@ export function useMultiplayer() {
       console.log('🔑 Player ID:', playerId);
 
       // Criar canal do Supabase Realtime
+      if (sharedChannel) {
+        try {
+          await sharedChannel.unsubscribe();
+        } catch {
+          // ignore
+        }
+        sharedChannel = null;
+      }
       const channel = supabase.channel(roomId, {
         config: {
           broadcast: { self: false, ack: false },
@@ -109,6 +124,7 @@ export function useMultiplayer() {
         }
       });
 
+      sharedChannel = channel;
       channelRef.current = channel;
     } catch (error) {
       console.error('❌ Erro ao criar sala:', error);
@@ -123,6 +139,7 @@ export function useMultiplayer() {
     try {
       const playerId = generatePlayerId();
       
+      sharedMyPlayerId = playerId;
       myPlayerIdRef.current = playerId;
       setMyPlayerId(playerId);
       setRoomId(roomIdToJoin);
@@ -132,6 +149,14 @@ export function useMultiplayer() {
       console.log('🔑 Player ID:', playerId);
 
       // Conectar ao canal existente
+      if (sharedChannel) {
+        try {
+          await sharedChannel.unsubscribe();
+        } catch {
+          // ignore
+        }
+        sharedChannel = null;
+      }
       const channel = supabase.channel(roomIdToJoin, {
         config: {
           broadcast: { self: false, ack: false },
@@ -213,6 +238,7 @@ export function useMultiplayer() {
         }
       });
 
+      sharedChannel = channel;
       channelRef.current = channel;
     } catch (error) {
       console.error('❌ Erro ao entrar na sala:', error);
@@ -225,7 +251,7 @@ export function useMultiplayer() {
   // Processar mensagens recebidas
   const handleIncomingMessage = useCallback((message: GameMessage) => {
     console.log('📨 Mensagem recebida:', message);
-    console.log('🔑 Meu ID:', myPlayerIdRef.current, '| ID da mensagem:', message.playerId);
+    console.log('🔑 Meu ID:', sharedMyPlayerId, '| ID da mensagem:', message.playerId);
 
     switch (message.type) {
       case 'PLAYER_JOIN':
@@ -269,13 +295,13 @@ export function useMultiplayer() {
 
   // Enviar mensagem (broadcast)
   const broadcast = useCallback(async (message: GameMessage) => {
-    if (!channelRef.current) {
+    if (!sharedChannel) {
       console.warn('⚠️ Canal não está conectado');
       return;
     }
 
     try {
-      await channelRef.current.send({
+      await sharedChannel.send({
         type: 'broadcast',
         event: 'game-action',
         payload: message,
@@ -295,7 +321,7 @@ export function useMultiplayer() {
         p2, 
         playerIndex
       },
-      playerId: myPlayerIdRef.current,
+      playerId: sharedMyPlayerId,
       timestamp: Date.now(),
     };
 
@@ -314,7 +340,7 @@ export function useMultiplayer() {
     const message: GameMessage = {
       type: 'START_GAME',
       payload: { players },
-      playerId: myPlayerIdRef.current,
+      playerId: sharedMyPlayerId,
       timestamp: Date.now(),
     };
 
@@ -326,41 +352,39 @@ export function useMultiplayer() {
 
   // Sair da sala
   const leaveRoom = useCallback(async () => {
-    if (channelRef.current) {
+    if (sharedChannel) {
       try {
         // Notificar saída
         const leaveMessage: GameMessage = {
           type: 'PLAYER_LEAVE',
-          payload: { playerId: myPlayerIdRef.current },
-          playerId: myPlayerIdRef.current,
+          payload: { playerId: sharedMyPlayerId },
+          playerId: sharedMyPlayerId,
           timestamp: Date.now(),
         };
 
-        await channelRef.current.send({
+        await sharedChannel.send({
           type: 'broadcast',
           event: 'game-action',
           payload: leaveMessage,
         });
 
         // Unsubscribe e limpar
-        await channelRef.current.unsubscribe();
+        await sharedChannel.unsubscribe();
+        sharedChannel = null;
         channelRef.current = null;
       } catch (error) {
         console.error('❌ Erro ao sair da sala:', error);
       }
     }
 
+    sharedMyPlayerId = '';
+    myPlayerIdRef.current = '';
+
     resetOnline();
   }, [resetOnline]);
 
-  // Cleanup ao desmontar
-  useEffect(() => {
-    return () => {
-      if (channelRef.current) {
-        channelRef.current.unsubscribe();
-      }
-    };
-  }, []);
+  // Importante: NÃO desconectar automaticamente no unmount.
+  // A troca de telas desmonta componentes, mas a partida online precisa continuar.
 
   return {
     createRoom,
