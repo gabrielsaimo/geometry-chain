@@ -9,6 +9,180 @@ import type { OnlinePlayer } from '../types/online';
 // Senão cada tela cria um hook separado e perde o canal.
 let sharedChannel: RealtimeChannel | null = null;
 let sharedMyPlayerId = '';
+let sharedMyPlayerName = '';
+let sharedMyColor = '';
+let sharedRoomId: string | null = null;
+let sharedIsHost = false;
+let sharedExpectClose = false;
+let sharedReconnectAttempts = 0;
+let sharedReconnectInFlight = false;
+
+function sortOnlinePlayers(list: OnlinePlayer[]) {
+  return [...list].sort((a, b) => {
+    const hostA = a.isHost ? 1 : 0;
+    const hostB = b.isHost ? 1 : 0;
+    if (hostA !== hostB) return hostB - hostA;
+    return a.id.localeCompare(b.id);
+  });
+}
+
+function processIncomingMessage(message: GameMessage) {
+  console.log('📨 Mensagem recebida:', message);
+  console.log('🔑 Meu ID:', sharedMyPlayerId, '| ID da mensagem:', message.playerId);
+
+  switch (message.type) {
+    case 'PLAYER_JOIN':
+      console.log('👋 Jogador entrou:', message.payload);
+      break;
+
+    case 'MOVE':
+      console.log('🎯 MOVIMENTO RECEBIDO DE OUTRO JOGADOR!', message.payload);
+      window.dispatchEvent(
+        new CustomEvent('online-game-message', {
+          detail: message,
+        })
+      );
+      break;
+
+    case 'START_GAME':
+      console.log('🎮 Jogo iniciado pelo host!');
+      useOnlineStore.getState().setGameStarted(true);
+      break;
+
+    case 'RESET':
+      console.log('🔄 Jogo resetado');
+      useGameStore.getState().resetGame();
+      break;
+
+    case 'UPDATE_SCORE':
+      console.log('📊 Pontuação atualizada:', message.payload);
+      if (message.payload.players) {
+        useOnlineStore.getState().setPlayers(message.payload.players);
+      }
+      break;
+
+    case 'PLAYER_LEAVE':
+      console.log('👋 Jogador saiu:', message.payload);
+      useOnlineStore.getState().removePlayer(message.payload.playerId);
+      break;
+  }
+}
+
+async function safeUnsubscribe(channel: RealtimeChannel) {
+  try {
+    sharedExpectClose = true;
+    await channel.unsubscribe();
+  } catch {
+    // ignore
+  } finally {
+    sharedExpectClose = false;
+  }
+}
+
+async function connectOrReconnectToRoom(params: {
+  roomId: string;
+  playerId: string;
+  playerName: string;
+  color: string;
+  isHost: boolean;
+}) {
+  const { roomId, playerId, playerName, color, isHost } = params;
+
+  if (sharedReconnectInFlight) return;
+  sharedReconnectInFlight = true;
+
+  try {
+    if (sharedChannel) {
+      await safeUnsubscribe(sharedChannel);
+      sharedChannel = null;
+    }
+
+    const channel = supabase.channel(roomId, {
+      config: {
+        broadcast: { self: false, ack: false },
+        presence: { key: playerId },
+      },
+    });
+
+    channel
+      .on('presence', { event: 'sync' }, () => {
+        const state = channel.presenceState();
+        console.log('🔄 Presença atualizada:', state);
+
+        const onlinePlayers: OnlinePlayer[] = Object.values(state)
+          .flat()
+          .map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            color: p.color,
+            isHost: p.isHost,
+          }));
+
+        useOnlineStore.getState().setPlayers(sortOnlinePlayers(onlinePlayers));
+      })
+      .on('broadcast', { event: 'game-action' }, ({ payload }) => {
+        processIncomingMessage(payload as GameMessage);
+      });
+
+    sharedChannel = channel;
+
+    await channel.subscribe(async (status) => {
+      console.log('📡 Status de subscrição:', status);
+
+      if (status === 'SUBSCRIBED') {
+        sharedReconnectAttempts = 0;
+        useOnlineStore.getState().setConnected(true);
+        console.log('✅ Conectado ao canal:', roomId);
+
+        await channel.track({
+          id: playerId,
+          name: playerName,
+          color,
+          isHost,
+          online_at: new Date().toISOString(),
+        });
+      }
+
+      if (status === 'CLOSED') {
+        // Se foi um close esperado (unsubscribe), não é erro.
+        if (sharedExpectClose) return;
+
+        console.error('❌ Canal fechado inesperadamente (CLOSED)');
+        useOnlineStore.getState().setConnected(false);
+
+        // Reconnect com backoff simples
+        if (!sharedRoomId || !sharedMyPlayerId) return;
+        if (sharedReconnectAttempts >= 5) {
+          console.error('❌ Reconnect excedeu tentativas');
+          return;
+        }
+
+        sharedReconnectAttempts += 1;
+        const delay = Math.min(500 * sharedReconnectAttempts, 4000);
+        console.log(`🔁 Tentando reconectar em ${delay}ms (tentativa ${sharedReconnectAttempts})...`);
+
+        setTimeout(() => {
+          // evitar loop se já reconectou
+          if (useOnlineStore.getState().connected) return;
+          connectOrReconnectToRoom({
+            roomId: sharedRoomId!,
+            playerId: sharedMyPlayerId,
+            playerName: sharedMyPlayerName,
+            color: sharedMyColor,
+            isHost: sharedIsHost,
+          });
+        }, delay);
+      }
+
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        console.error('❌ Erro/timeout ao conectar:', status);
+        useOnlineStore.getState().setConnected(false);
+      }
+    });
+  } finally {
+    sharedReconnectInFlight = false;
+  }
+}
 
 export function useMultiplayer() {
   // refs locais apenas para não quebrar assinaturas do React; o estado real é global
@@ -23,7 +197,6 @@ export function useMultiplayer() {
     setMyPlayerId,
     setIsHost,
     setPlayers,
-    removePlayer,
     setConnected,
     reset: resetOnline,
   } = useOnlineStore();
@@ -33,15 +206,7 @@ export function useMultiplayer() {
     return `player_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }, []);
 
-  const sortOnlinePlayers = useCallback((list: OnlinePlayer[]) => {
-    // Precisa ser determinístico em todos os clientes para turnos e índices baterem.
-    return [...list].sort((a, b) => {
-      const hostA = a.isHost ? 1 : 0;
-      const hostB = b.isHost ? 1 : 0;
-      if (hostA !== hostB) return hostB - hostA; // host primeiro
-      return a.id.localeCompare(b.id);
-    });
-  }, []);
+  // sortOnlinePlayers agora é função global (determinística)
 
   // Criar sala (Host)
   const createRoom = useCallback(async (playerName: string) => {
@@ -50,6 +215,10 @@ export function useMultiplayer() {
       const roomId = `room_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
       
       sharedMyPlayerId = playerId;
+      sharedMyPlayerName = playerName;
+      sharedMyColor = '#ef4444';
+      sharedRoomId = roomId;
+      sharedIsHost = true;
       myPlayerIdRef.current = playerId;
       setMyPlayerId(playerId);
       setRoomId(roomId);
@@ -58,74 +227,15 @@ export function useMultiplayer() {
       console.log('✅ Criando sala:', roomId);
       console.log('🔑 Player ID:', playerId);
 
-      // Criar canal do Supabase Realtime
-      if (sharedChannel) {
-        try {
-          await sharedChannel.unsubscribe();
-        } catch {
-          // ignore
-        }
-        sharedChannel = null;
-      }
-      const channel = supabase.channel(roomId, {
-        config: {
-          broadcast: { self: false, ack: false },
-          presence: { key: playerId },
-        },
+      await connectOrReconnectToRoom({
+        roomId,
+        playerId,
+        playerName,
+        color: sharedMyColor,
+        isHost: true,
       });
 
-      // Configurar presença (quem está online)
-      channel
-        .on('presence', { event: 'sync' }, () => {
-          const state = channel.presenceState();
-          console.log('🔄 Presença atualizada:', state);
-          
-          const onlinePlayers: OnlinePlayer[] = Object.values(state)
-            .flat()
-            .map((p: any) => ({
-              id: p.id,
-              name: p.name,
-              color: p.color,
-              isHost: p.isHost,
-            }));
-
-          setPlayers(sortOnlinePlayers(onlinePlayers));
-        })
-        .on('presence', { event: 'join' }, ({ key, newPresences }) => {
-          console.log('✅ Jogador entrou:', key, newPresences);
-        })
-        .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
-          console.log('❌ Jogador saiu:', key, leftPresences);
-        })
-        .on('broadcast', { event: 'game-action' }, ({ payload }) => {
-          handleIncomingMessage(payload as GameMessage);
-        });
-
-      // Subscrever ao canal
-      await channel.subscribe(async (status) => {
-        console.log('📡 Status de subscrição (criar):', status);
-        
-        if (status === 'SUBSCRIBED') {
-          console.log('✅ Conectado ao canal:', roomId);
-          
-          // Enviar presença do host
-          await channel.track({
-            id: playerId,
-            name: playerName,
-            color: '#ef4444',
-            isHost: true,
-            online_at: new Date().toISOString(),
-          });
-          
-          setConnected(true);
-        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-          console.error('❌ Erro ao conectar:', status);
-          throw new Error(`Erro ao conectar ao canal: ${status}`);
-        }
-      });
-
-      sharedChannel = channel;
-      channelRef.current = channel;
+      channelRef.current = sharedChannel;
     } catch (error) {
       console.error('❌ Erro ao criar sala:', error);
       const errorMsg = error instanceof Error ? error.message : 'Erro desconhecido';
@@ -140,6 +250,9 @@ export function useMultiplayer() {
       const playerId = generatePlayerId();
       
       sharedMyPlayerId = playerId;
+      sharedMyPlayerName = playerName;
+      sharedRoomId = roomIdToJoin;
+      sharedIsHost = false;
       myPlayerIdRef.current = playerId;
       setMyPlayerId(playerId);
       setRoomId(roomIdToJoin);
@@ -148,98 +261,45 @@ export function useMultiplayer() {
       console.log('🔗 Entrando na sala:', roomIdToJoin);
       console.log('🔑 Player ID:', playerId);
 
-      // Conectar ao canal existente
-      if (sharedChannel) {
-        try {
-          await sharedChannel.unsubscribe();
-        } catch {
-          // ignore
-        }
-        sharedChannel = null;
-      }
-      const channel = supabase.channel(roomIdToJoin, {
-        config: {
-          broadcast: { self: false, ack: false },
-          presence: { key: playerId },
-        },
+      // Escolher cor diferente do host (baseado no snapshot atual)
+      const colors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'];
+      const usedColors = players.map(p => p.color);
+      const availableColor = colors.find(c => !usedColors.includes(c)) || colors[0];
+      sharedMyColor = availableColor;
+
+      await connectOrReconnectToRoom({
+        roomId: roomIdToJoin,
+        playerId,
+        playerName,
+        color: sharedMyColor,
+        isHost: false,
       });
 
-      // Configurar presença
-      channel
-        .on('presence', { event: 'sync' }, () => {
-          const state = channel.presenceState();
-          console.log('🔄 Presença atualizada:', state);
-          
-          const onlinePlayers: OnlinePlayer[] = Object.values(state)
-            .flat()
-            .map((p: any) => ({
-              id: p.id,
-              name: p.name,
-              color: p.color,
-              isHost: p.isHost,
-            }));
+      channelRef.current = sharedChannel;
 
-          setPlayers(sortOnlinePlayers(onlinePlayers));
-        })
-        .on('presence', { event: 'join' }, ({ key, newPresences }) => {
-          console.log('✅ Jogador entrou:', key, newPresences);
-        })
-        .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
-          console.log('❌ Jogador saiu:', key, leftPresences);
-        })
-        .on('broadcast', { event: 'game-action' }, ({ payload }) => {
-          handleIncomingMessage(payload as GameMessage);
-        });
-
-      // Subscrever ao canal
-      await channel.subscribe(async (status) => {
-        console.log('📡 Status de subscrição:', status);
-        
-        if (status === 'SUBSCRIBED') {
-          console.log('✅ Conectado à sala:', roomIdToJoin);
-          
-          // Escolher cor diferente do host
-          const colors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'];
-          const usedColors = players.map(p => p.color);
-          const availableColor = colors.find(c => !usedColors.includes(c)) || colors[0];
-          
-          // Enviar presença
-          await channel.track({
-            id: playerId,
-            name: playerName,
-            color: availableColor,
-            isHost: false,
-            online_at: new Date().toISOString(),
-          });
-          
-          setConnected(true);
-          
-          // Notificar entrada
-          const joinMessage: GameMessage = {
-            type: 'PLAYER_JOIN',
-            payload: {
-              id: playerId,
-              name: playerName,
-              color: availableColor,
-              isHost: false,
-            },
-            playerId,
-            timestamp: Date.now(),
-          };
-          
-          await channel.send({
+      // Notificar entrada (best effort)
+      const joinMessage: GameMessage = {
+        type: 'PLAYER_JOIN',
+        payload: {
+          id: playerId,
+          name: playerName,
+          color: sharedMyColor,
+          isHost: false,
+        },
+        playerId,
+        timestamp: Date.now(),
+      };
+      try {
+        if (sharedChannel) {
+          await sharedChannel.send({
             type: 'broadcast',
             event: 'game-action',
             payload: joinMessage,
           });
-        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-          console.error('❌ Erro de conexão ao canal:', status);
-          throw new Error(`Erro ao conectar: ${status}`);
         }
-      });
-
-      sharedChannel = channel;
-      channelRef.current = channel;
+      } catch {
+        // ignore
+      }
     } catch (error) {
       console.error('❌ Erro ao entrar na sala:', error);
       const errorMsg = error instanceof Error ? error.message : 'Erro desconhecido';
@@ -247,51 +307,6 @@ export function useMultiplayer() {
       setConnected(false);
     }
   }, [generatePlayerId, setMyPlayerId, setRoomId, setIsHost, setPlayers, setConnected, players]);
-
-  // Processar mensagens recebidas
-  const handleIncomingMessage = useCallback((message: GameMessage) => {
-    console.log('📨 Mensagem recebida:', message);
-    console.log('🔑 Meu ID:', sharedMyPlayerId, '| ID da mensagem:', message.playerId);
-
-    switch (message.type) {
-      case 'PLAYER_JOIN':
-        console.log('👋 Jogador entrou:', message.payload);
-        break;
-
-      case 'MOVE':
-        // Emitir evento para o GameBoard processar
-        console.log('🎯 MOVIMENTO RECEBIDO DE OUTRO JOGADOR!', message.payload);
-        console.log('📍 Disparando evento online-game-message...');
-        window.dispatchEvent(new CustomEvent('online-game-message', {
-          detail: message
-        }));
-        console.log('✅ Evento disparado');
-        break;
-
-      case 'START_GAME':
-        console.log('🎮 Jogo iniciado pelo host!');
-        // Marcar como iniciado
-        useOnlineStore.getState().setGameStarted(true);
-        break;
-
-      case 'RESET':
-        console.log('🔄 Jogo resetado');
-        useGameStore.getState().resetGame();
-        break;
-
-      case 'UPDATE_SCORE':
-        console.log('📊 Pontuação atualizada:', message.payload);
-        if (message.payload.players) {
-          setPlayers(message.payload.players);
-        }
-        break;
-
-      case 'PLAYER_LEAVE':
-        console.log('👋 Jogador saiu:', message.payload);
-        removePlayer(message.payload.playerId);
-        break;
-    }
-  }, [setPlayers, removePlayer]);
 
   // Enviar mensagem (broadcast)
   const broadcast = useCallback(async (message: GameMessage) => {
@@ -378,6 +393,10 @@ export function useMultiplayer() {
     }
 
     sharedMyPlayerId = '';
+    sharedMyPlayerName = '';
+    sharedMyColor = '';
+    sharedRoomId = null;
+    sharedIsHost = false;
     myPlayerIdRef.current = '';
 
     resetOnline();
