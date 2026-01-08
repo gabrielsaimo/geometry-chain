@@ -26,6 +26,7 @@ interface GameState {
   addTriangle: (triangle: Triangle) => void;
   incrementScore: (player: number, points: number) => void;
   nextPlayer: () => void;
+  setCurrentPlayer: (playerIndex: number) => void;
   resetGame: () => void;
   setGameOver: (value: boolean) => void;
 }
@@ -95,6 +96,11 @@ export const useGameStore = create<GameState>()(
         set((state) => ({
           currentPlayer: (state.currentPlayer + 1) % state.players.length
         }), false, 'nextPlayer'),
+
+      setCurrentPlayer: (playerIndex) =>
+        set(() => ({
+          currentPlayer: playerIndex
+        }), false, 'setCurrentPlayer'),
       
       resetGame: () =>
         set((state) => ({

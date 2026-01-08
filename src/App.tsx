@@ -18,10 +18,17 @@ function App() {
       console.log('👥 Jogadores online:', onlinePlayers);
       console.log('📊 Quantidade de jogadores:', onlinePlayers.length);
       console.log('🔑 Meu ID:', myPlayerId);
+
+      const sortedPlayers = [...onlinePlayers].sort((a, b) => {
+        const hostA = a.isHost ? 1 : 0;
+        const hostB = b.isHost ? 1 : 0;
+        if (hostA !== hostB) return hostB - hostA;
+        return a.id.localeCompare(b.id);
+      });
       
       // Sincronizar jogadores da sala online com o gameStore
-      if (onlinePlayers.length > 0) {
-        const mappedPlayers = onlinePlayers.map(p => ({
+      if (sortedPlayers.length > 0) {
+        const mappedPlayers = sortedPlayers.map(p => ({
           name: p.name,
           color: p.color
         }));
@@ -29,7 +36,7 @@ function App() {
         setOnlinePlayers(mappedPlayers);
         
         // Definir o índice deste jogador baseado na ordem
-        const myIndex = onlinePlayers.findIndex(p => p.id === myPlayerId);
+        const myIndex = sortedPlayers.findIndex(p => p.id === myPlayerId);
         console.log('📍 Meu índice no jogo:', myIndex);
         setMyPlayerIndex(myIndex);
         

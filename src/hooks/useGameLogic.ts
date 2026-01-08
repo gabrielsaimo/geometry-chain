@@ -10,7 +10,7 @@ import {
   checkGameOver,
 } from '../utils/gameLogic';
 
-export function useGameLogic(sendMove?: (p1: Dot, p2: Dot) => Promise<void>) {
+export function useGameLogic(sendMove?: (p1: Dot, p2: Dot, playerIndex: number) => Promise<void>) {
   const {
     setup,
     players,
@@ -22,6 +22,7 @@ export function useGameLogic(sendMove?: (p1: Dot, p2: Dot) => Promise<void>) {
     addTriangle,
     incrementScore,
     nextPlayer,
+    setCurrentPlayer,
     setGameOver,
   } = useGameStore();
 
@@ -33,7 +34,11 @@ export function useGameLogic(sendMove?: (p1: Dot, p2: Dot) => Promise<void>) {
   }, []);
 
   const makeMove = useCallback(
-    async (p1: Dot, p2: Dot, isRemote = false) => {
+    async (p1: Dot, p2: Dot, isRemote = false, remotePlayerIndex?: number) => {
+      const activePlayer = isRemote && typeof remotePlayerIndex === 'number'
+        ? remotePlayerIndex
+        : currentPlayer;
+
       const validation = isValidMove(p1, p2, setup.lineLength, lines);
       if (!validation.valid || !validation.path) return;
 
@@ -47,16 +52,16 @@ export function useGameLogic(sendMove?: (p1: Dot, p2: Dot) => Promise<void>) {
         const end = path[i + 1];
 
         if (!lineExists(start, end, lines)) {
-          addLine({ p1: start, p2: end, player: currentPlayer });
+          addLine({ p1: start, p2: end, player: activePlayer });
           
           // Verificar novos triângulos
           const newTriangles = checkNewTriangles(
             start,
             end,
-            [...lines, { p1: start, p2: end, player: currentPlayer }],
+            [...lines, { p1: start, p2: end, player: activePlayer }],
             triangles,
-            currentPlayer,
-            players[currentPlayer].color
+            activePlayer,
+            players[activePlayer]?.color || '#ffffff'
           );
           
           totalTriangles += newTriangles.length;
@@ -69,14 +74,19 @@ export function useGameLogic(sendMove?: (p1: Dot, p2: Dot) => Promise<void>) {
 
       // Atualizar pontuação
       if (totalTriangles > 0) {
-        incrementScore(currentPlayer, totalTriangles);
+        incrementScore(activePlayer, totalTriangles);
         if (notificationCallback.current) {
           notificationCallback.current(`+${totalTriangles} Triângulo${totalTriangles > 1 ? 's' : ''}!`);
         }
       }
 
       // Próximo jogador
-      nextPlayer();
+      if (isRemote) {
+        const next = players.length > 0 ? (activePlayer + 1) % players.length : 0;
+        setCurrentPlayer(next);
+      } else {
+        nextPlayer();
+      }
 
       // Verificar fim de jogo
       const totalScore = players.reduce((sum, p) => sum + p.score, 0) + totalTriangles;
@@ -86,11 +96,12 @@ export function useGameLogic(sendMove?: (p1: Dot, p2: Dot) => Promise<void>) {
 
       // Se não for movimento remoto e estiver online, enviar para outros jogadores
       if (!isRemote && connected && sendMove) {
+        const moverIndex = activePlayer;
         console.log('📤 ENVIANDO MOVIMENTO PARA OUTROS JOGADORES!');
         console.log('📍 P1:', p1);
         console.log('📍 P2:', p2);
         console.log('🌐 Connected:', connected);
-        await sendMove(p1, p2);
+        await sendMove(p1, p2, moverIndex);
         console.log('✅ Movimento enviado com sucesso');
       } else {
         console.log('⏭️ Movimento remoto ou offline, não enviando:', {
@@ -112,6 +123,7 @@ export function useGameLogic(sendMove?: (p1: Dot, p2: Dot) => Promise<void>) {
       addTriangle,
       incrementScore,
       nextPlayer,
+      setCurrentPlayer,
       setGameOver,
       connected,
       sendMove,

@@ -20,7 +20,10 @@ export function generateHexGrid(
   const centerX = canvasWidth / 2;
   const centerY = canvasHeight / 2;
 
-  let id = 0;
+  // ID determinístico: depende apenas de (q,r) e do size.
+  // Isso garante que diferentes PCs (com canvas diferentes) ainda consigam
+  // mapear o mesmo ponto lógico do tabuleiro.
+  const range = size * 2 + 1;
   for (let q = -size; q <= size; q++) {
     for (let r = -size; r <= size; r++) {
       const s = -q - r;
@@ -28,7 +31,8 @@ export function generateHexGrid(
         const px = centerX + spacing * (q + r / 2);
         const py = centerY + spacing * (r * 0.866);
 
-        dots.push({ x: px, y: py, q, r, id: id++ });
+        const id = (q + size) * range + (r + size);
+        dots.push({ x: px, y: py, q, r, id });
       }
     }
   }

@@ -54,7 +54,7 @@ const GameBoard = memo(({ onBack }: GameBoardProps) => {
       if (message.type === 'MOVE') {
         console.log('🎯 PROCESSANDO MOVIMENTO DE OUTRO JOGADOR!');
         console.log('📍 Payload:', message.payload);
-        const { p1, p2 } = message.payload;
+        const { p1, p2, playerIndex } = message.payload;
         
         console.log('🔍 Procurando dots correspondentes...');
         console.log('📊 Total de dots disponíveis:', dots.length);
@@ -69,7 +69,7 @@ const GameBoard = memo(({ onBack }: GameBoardProps) => {
         if (dot1 && dot2) {
           console.log('✅ Aplicando movimento remoto...');
           // Aplicar movimento como remoto (não envia de volta)
-          makeMove(dot1, dot2, true);
+          makeMove(dot1, dot2, true, playerIndex);
           console.log('✅ Movimento remoto aplicado!');
         } else {
           console.error('❌ Dots não encontrados!', {

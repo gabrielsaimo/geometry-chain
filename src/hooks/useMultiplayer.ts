@@ -27,6 +27,16 @@ export function useMultiplayer() {
     return `player_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }, []);
 
+  const sortOnlinePlayers = useCallback((list: OnlinePlayer[]) => {
+    // Precisa ser determinístico em todos os clientes para turnos e índices baterem.
+    return [...list].sort((a, b) => {
+      const hostA = a.isHost ? 1 : 0;
+      const hostB = b.isHost ? 1 : 0;
+      if (hostA !== hostB) return hostB - hostA; // host primeiro
+      return a.id.localeCompare(b.id);
+    });
+  }, []);
+
   // Criar sala (Host)
   const createRoom = useCallback(async (playerName: string) => {
     try {
@@ -63,8 +73,8 @@ export function useMultiplayer() {
               color: p.color,
               isHost: p.isHost,
             }));
-          
-          setPlayers(onlinePlayers);
+
+          setPlayers(sortOnlinePlayers(onlinePlayers));
         })
         .on('presence', { event: 'join' }, ({ key, newPresences }) => {
           console.log('✅ Jogador entrou:', key, newPresences);
@@ -143,8 +153,8 @@ export function useMultiplayer() {
               color: p.color,
               isHost: p.isHost,
             }));
-          
-          setPlayers(onlinePlayers);
+
+          setPlayers(sortOnlinePlayers(onlinePlayers));
         })
         .on('presence', { event: 'join' }, ({ key, newPresences }) => {
           console.log('✅ Jogador entrou:', key, newPresences);
@@ -277,14 +287,13 @@ export function useMultiplayer() {
   }, []);
 
   // Enviar movimento
-  const sendMove = useCallback(async (p1: any, p2: any) => {
-    const currentPlayer = useGameStore.getState().currentPlayer;
+  const sendMove = useCallback(async (p1: any, p2: any, playerIndex: number) => {
     const message: GameMessage = {
       type: 'MOVE',
       payload: { 
         p1, 
         p2, 
-        currentPlayer // Sincronizar qual jogador fez o movimento
+        playerIndex
       },
       playerId: myPlayerIdRef.current,
       timestamp: Date.now(),
