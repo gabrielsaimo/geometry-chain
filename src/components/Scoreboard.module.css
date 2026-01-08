@@ -1,61 +1,101 @@
 .scoreboard {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
+  justify-content: flex-start;
   width: 100%;
-  max-width: 600px;
-  margin-top: 10px;
-  gap: 10px;
-  flex-wrap: wrap;
+  gap: 12px;
+  padding: 0;
+}
+
+@media (max-width: 768px) {
+  .scoreboard {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 900px;
+    padding: 0 10px;
+  }
 }
 
 .player-card {
   background: var(--panel-bg);
-  flex: 1;
-  padding: 10px;
+  padding: 16px 20px;
   border-radius: 12px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  border: 2px solid transparent;
+  justify-content: center;
+  border: 3px solid transparent;
   transition: all 0.3s;
-  min-width: 80px;
+  width: 100%;
   position: relative;
   overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+@media (max-width: 768px) {
+  .player-card {
+    flex: 1;
+    min-width: 110px;
+    max-width: 180px;
+    width: auto;
+  }
 }
 
 .player-card.active {
   border-color: currentColor;
-  background: rgba(255, 255, 255, 0.05);
-  transform: translateY(-3px);
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateX(-4px) scale(1.03);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5), 0 0 20px currentColor;
+}
+
+@media (max-width: 768px) {
+  .player-card.active {
+    transform: translateY(-4px) scale(1.05);
+  }
 }
 
 .player-name {
-  font-size: 0.8rem;
+  font-size: 0.95rem;
   font-weight: 700;
-  margin-bottom: 2px;
+  margin-bottom: 6px;
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
 }
 
 .player-score {
-  font-size: 1.4rem;
+  font-size: 2rem;
   font-weight: 900;
+  line-height: 1;
 }
 
 .turn-indicator {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 8px;
-  height: 8px;
+  top: 10px;
+  right: 10px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   background: currentColor;
-  box-shadow: 0 0 8px currentColor;
+  box-shadow: 0 0 12px currentColor, 0 0 20px currentColor;
   display: none;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.2);
+  }
 }
 
 .player-card.active .turn-indicator {
@@ -64,7 +104,19 @@
 
 @media (max-width: 500px) {
   .player-card {
-    min-width: 60px;
-    padding: 5px;
+    min-width: 85px;
+    padding: 12px 16px;
+  }
+  
+  .player-name {
+    font-size: 0.8rem;
+  }
+  
+  .player-score {
+    font-size: 1.7rem;
+  }
+  
+  .scoreboard {
+    gap: 8px;
   }
 }

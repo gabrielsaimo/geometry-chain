@@ -102,32 +102,32 @@ const GameBoard = memo(({ onBack }: GameBoardProps) => {
         </div>
         {connected && players[currentPlayer] && (
           <div style={{ 
-            marginTop: '8px', 
-            padding: '12px 20px', 
+            marginTop: '6px', 
+            padding: '8px 16px', 
             backgroundColor: isMyTurn 
               ? players[currentPlayer].color + '30'
               : '#1e293b',
-            border: `3px solid ${players[currentPlayer].color}`,
+            border: `2px solid ${players[currentPlayer].color}`,
             borderRadius: '8px',
             color: '#fff',
             fontWeight: 'bold',
-            fontSize: '16px',
-            textAlign: 'center'
+            fontSize: '0.85rem',
+            textAlign: 'center',
+            maxWidth: '350px',
+            margin: '6px auto 0'
           }}>
             {isMyTurn ? (
               <>
-                ⭐ SUA VEZ! ⭐
-                <br />
-                <span style={{ fontSize: '14px', opacity: 0.9 }}>
-                  Jogador: {players[currentPlayer].name}
+                ⭐ SUA VEZ!
+                <span style={{ fontSize: '0.75rem', opacity: 0.9, marginLeft: '8px' }}>
+                  ({players[currentPlayer].name})
                 </span>
               </>
             ) : (
               <>
-                ⏳ Aguarde...
-                <br />
-                <span style={{ fontSize: '14px', opacity: 0.9 }}>
-                  Vez de: {players[currentPlayer].name}
+                ⏳ Aguarde
+                <span style={{ fontSize: '0.75rem', opacity: 0.9, marginLeft: '8px' }}>
+                  (Vez de: {players[currentPlayer].name})
                 </span>
               </>
             )}
@@ -135,46 +135,51 @@ const GameBoard = memo(({ onBack }: GameBoardProps) => {
         )}
       </div>
 
-      <div className={styles.controls}>
-        <button className={`${styles.btn} ${styles['btn-danger']}`} onClick={onBack}>
-          Sair
-        </button>
-        <button className={styles.btn} onClick={handleReset}>
-          Reiniciar Partida
-        </button>
-        <button 
-          className={`${styles.btn} ${styles['btn-fullscreen']}`} 
-          onClick={toggleFullscreen}
-          title={isFullscreen ? 'Sair da tela cheia' : 'Tela cheia'}
-        >
-          {isFullscreen ? (
-            <>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3" />
-              </svg>
-              Sair
-            </>
-          ) : (
-            <>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
-              </svg>
-              Expandir
-            </>
-          )}
-        </button>
-      </div>
+      <div className={styles['game-content']}>
+        <div className={styles.controls}>
+          <button className={`${styles.btn} ${styles['btn-danger']}`} onClick={onBack}>
+            Sair
+          </button>
+          <button className={styles.btn} onClick={handleReset}>
+            Reiniciar Partida
+          </button>
+          <button 
+            className={`${styles.btn} ${styles['btn-fullscreen']}`} 
+            onClick={toggleFullscreen}
+            title={isFullscreen ? 'Sair da tela cheia' : 'Tela cheia'}
+          >
+            {isFullscreen ? (
+              <>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3" />
+                </svg>
+                Sair
+              </>
+            ) : (
+              <>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+                </svg>
+                Expandir
+              </>
+            )}
+          </button>
+        </div>
 
-      <div ref={gameAreaRef} className={styles['game-area-wrapper']}>
-        <div className={styles['game-area']}>
-          <canvas ref={canvasRef} className={styles.canvas} />
-          <div className={`${styles.notification} ${showNotification ? styles.show : ''}`}>
-            {notification}
+        <div ref={gameAreaRef} className={styles['game-area-wrapper']}>
+          <div className={styles['game-area']}>
+            <canvas ref={canvasRef} className={styles.canvas} />
           </div>
+        </div>
+
+        <div className={styles['scoreboard-wrapper']}>
+          <Scoreboard />
         </div>
       </div>
 
-      <Scoreboard />
+      <div className={`${styles.notification} ${showNotification ? styles.show : ''}`}>
+        {notification}
+      </div>
     </div>
   );
 });
